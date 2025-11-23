@@ -92,6 +92,8 @@ Thumbs.db
 .pytest_cache/
 .coverage
 htmlcov/
+test_*.py
+*_test.py
 
 # Documentation builds
 docs/_build/
