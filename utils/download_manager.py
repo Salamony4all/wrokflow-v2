@@ -278,7 +278,7 @@ class DownloadManager:
         wb = Workbook()
         
         # Logo removed from Excel exports per user request
-            wb.remove(wb.active)  # Remove default sheet
+        wb.remove(wb.active)  # Remove default sheet
         
         # Process each page
         for idx, layout_result in enumerate(extraction_result.get('layoutParsingResults', [])):
