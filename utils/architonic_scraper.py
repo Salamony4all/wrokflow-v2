@@ -214,7 +214,12 @@ class ArchitonicScraper:
                     pass
             return {'error': str(e)}
         finally:
-            scraper.close()
+            # Close scraper if it was used
+            if scraper:
+                try:
+                    scraper.close()
+                except:
+                    pass
     
     def _find_collection_links(self, scraper: SeleniumScraper, url: str, brand_name: str) -> Dict[str, str]:
         """Find all collection links on a brand products/collections page"""
@@ -761,7 +766,12 @@ class ArchitonicScraper:
             logger.error(f"Error in Selenium scraping: {e}")
             return {'error': str(e)}
         finally:
-            scraper.close()
+            # Close scraper if it was used
+            if scraper:
+                try:
+                    scraper.close()
+                except:
+                    pass
     
     def _scrape_with_requests(self, url: str, brand_name: str) -> Dict:
         """Scrape using requests (fallback, may not work well for JavaScript content)"""
