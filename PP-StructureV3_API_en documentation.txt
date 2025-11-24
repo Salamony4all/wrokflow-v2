@@ -1,5 +1,5 @@
 PP-StructureV3_API_en
-Updated : 2025-10-24
+Updated : 2025-11-06
 PP-StructureV3 Service Deployment & API Usage Example:
 1. Service Call Example (python)
 # Please make sure the requests library is installed
@@ -8,8 +8,8 @@ import base64
 import os
 import requests
 
-API_URL = "<https://wfk3ide9lcd0x0k9.aistudio-hub.baidu.com/layout-parsing>"
-TOKEN = "<031c87b3c44d16aa4adf6928bcfa132e23393afc>"
+API_URL = "<your url>"
+TOKEN = "<access token>"
 
 file_path = "<local file path>"
 
@@ -23,7 +23,14 @@ headers = {
 }
 
 # For PDF documents, set `fileType` to 0; for images, set `fileType` to 1
-payload = {"file": file_data, "fileType": <file type>}
+payload = {
+    "file": file_data,
+    "fileType": <file type>,
+    "useDocOrientationClassify": False,
+    "useDocUnwarping": False,
+    "useTextlineOrientation": False,
+    "useChartRecognition": False,
+}
 
 response = requests.post(API_URL, json=payload, headers=headers)
 print(response.status_code)
@@ -63,7 +70,7 @@ When the request is processed successfully, the response status code is 200, and
 Name	Type	Description
 logId	string	The UUID of the request.
 errorCode	integer	Error code. Always 0.
-errorMsg	string	Error description. Always "Success".
+errorMsg	string	Error description: Always "Success".
 result	object	Operation result.
 When the request is not processed successfully, the response body contains the following properties:
 Name	Type	Description
@@ -86,7 +93,7 @@ Serving:
   extra:
     max_num_input_imgs: null
 Yes
-File Type	fileType	integer｜null	File type. 0for PDF files, 1for image files. If this property is not provided, the file type will be inferred from the URL.	No
+File Type	fileType	integer|null	File type. 0for PDF files, 1for image files. If this property is not provided, the file type will be inferred from the URL.	No
 Image Orientation Correction	useDocOrientationClassify	boolean|null	Whether to use the document orientation classification module during inference. If enabled, images with 0°, 90°, 180°, and 270° rotation can be automatically detected and corrected.	No
 Image Distortion Correction	useDocUnwarping	boolean|null	Whether to use the text image unwarping module during inference. If enabled, distorted images, such as wrinkled or skewed ones, can be automatically corrected.	No
 Text Line Orientation Correction	useTextlineOrientation	boolean|null	Whether to use the textline orientation classification module during inference. If enabled, 0° and 180° text lines can be automatically detected and corrected.	No

@@ -4617,14 +4617,14 @@
                                     style="color: #e0e0e0; cursor: pointer; font-size: 0.9em;">Table Recognition</label>
                             </div>
                             <div style="display: flex; align-items: center; gap: 8px;">
-                                <input type="checkbox" id="upload-setting-useFormulaRecognition"
+                                <input type="checkbox" id="upload-setting-useFormulaRecognition" checked
                                     style="width: 16px; height: 16px; cursor: pointer;">
                                 <label for="upload-setting-useFormulaRecognition"
                                     style="color: #e0e0e0; cursor: pointer; font-size: 0.9em;">Formula
                                     Recognition</label>
                             </div>
                             <div style="display: flex; align-items: center; gap: 8px;">
-                                <input type="checkbox" id="upload-setting-useChartRecognition"
+                                <input type="checkbox" id="upload-setting-useChartRecognition" checked
                                     style="width: 16px; height: 16px; cursor: pointer;">
                                 <label for="upload-setting-useChartRecognition"
                                     style="color: #e0e0e0; cursor: pointer; font-size: 0.9em;">Chart Recognition</label>
@@ -4657,10 +4657,169 @@
                                     Orientation</label>
                             </div>
                             <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="upload-setting-useDocUnwarping"
+                                    style="width: 16px; height: 16px; cursor: pointer;">
+                                <label for="upload-setting-useDocUnwarping"
+                                    style="color: #e0e0e0; cursor: pointer; font-size: 0.9em;">Image Distortion Correction</label>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
                                 <input type="checkbox" id="upload-setting-visualize"
                                     style="width: 16px; height: 16px; cursor: pointer;">
                                 <label for="upload-setting-visualize"
                                     style="color: #e0e0e0; cursor: pointer; font-size: 0.9em;">Visualize (Debug)</label>
+                            </div>
+                        </div>
+
+                        <!-- Table Recognition Advanced Settings -->
+                        <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #333;">
+                            <h4 style="color: #e0e0e0; margin-bottom: 10px; font-size: 0.9em;">📊 Table Recognition Advanced</h4>
+                            <div style="background: #2a1f0e; border-left: 3px solid #ff9800; padding: 8px; margin-bottom: 10px; border-radius: 4px;">
+                                <p style="color: #ff9800; margin: 0; font-size: 0.75em;">
+                                    ⚠️ Wired/Wireless to HTML or E2E modes may lose images
+                                </p>
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px;">
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <input type="checkbox" id="upload-setting-useWiredTableCellsTransToHtml"
+                                        style="width: 14px; height: 14px; cursor: pointer;">
+                                    <label for="upload-setting-useWiredTableCellsTransToHtml" style="color: #e0e0e0; cursor: pointer; font-size: 0.85em;">Wired Table to HTML</label>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <input type="checkbox" id="upload-setting-useWirelessTableCellsTransToHtml"
+                                        style="width: 14px; height: 14px; cursor: pointer;">
+                                    <label for="upload-setting-useWirelessTableCellsTransToHtml" style="color: #e0e0e0; cursor: pointer; font-size: 0.85em;">Wireless Table to HTML</label>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <input type="checkbox" id="upload-setting-useTableOrientationClassify"
+                                        style="width: 14px; height: 14px; cursor: pointer;">
+                                    <label for="upload-setting-useTableOrientationClassify" style="color: #e0e0e0; cursor: pointer; font-size: 0.85em;">Table Orientation</label>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <input type="checkbox" id="upload-setting-useOcrResultsWithTableCells"
+                                        style="width: 14px; height: 14px; cursor: pointer;">
+                                    <label for="upload-setting-useOcrResultsWithTableCells" style="color: #e0e0e0; cursor: pointer; font-size: 0.85em;">Cell Recognition</label>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <input type="checkbox" id="upload-setting-useE2eWiredTableRecModel"
+                                        style="width: 14px; height: 14px; cursor: pointer;">
+                                    <label for="upload-setting-useE2eWiredTableRecModel" style="color: #e0e0e0; cursor: pointer; font-size: 0.85em;">E2E Wired Table</label>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <input type="checkbox" id="upload-setting-useE2eWirelessTableRecModel"
+                                        style="width: 14px; height: 14px; cursor: pointer;">
+                                    <label for="upload-setting-useE2eWirelessTableRecModel" style="color: #e0e0e0; cursor: pointer; font-size: 0.85em;">E2E Wireless Table</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Layout Detection Settings -->
+                        <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #333;">
+                            <h4 style="color: #e0e0e0; margin-bottom: 10px; font-size: 0.9em;">📐 Layout Detection</h4>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;">
+                                <div style="display: flex; flex-direction: column; gap: 4px;">
+                                    <label for="upload-setting-layoutThreshold" style="color: #e0e0e0; font-size: 0.8em;">Layout Threshold</label>
+                                    <input type="number" id="upload-setting-layoutThreshold" step="0.1" min="0" max="1" value="0.5"
+                                        style="padding: 4px; border-radius: 4px; border: 1px solid #555; background: #2a2a2a; color: #e0e0e0; font-size: 0.85em;">
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <input type="checkbox" id="upload-setting-layoutNms"
+                                        style="width: 14px; height: 14px; cursor: pointer;">
+                                    <label for="upload-setting-layoutNms" style="color: #e0e0e0; cursor: pointer; font-size: 0.85em;">NMS Postprocessing</label>
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 4px;">
+                                    <label for="upload-setting-layoutUnclipRatio" style="color: #e0e0e0; font-size: 0.8em;">Expansion Coeff</label>
+                                    <input type="number" id="upload-setting-layoutUnclipRatio" step="0.1" min="0" value="1.0"
+                                        style="padding: 4px; border-radius: 4px; border: 1px solid #555; background: #2a2a2a; color: #e0e0e0; font-size: 0.85em;">
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 4px;">
+                                    <label for="upload-setting-layoutMergeBboxesMode" style="color: #e0e0e0; font-size: 0.8em;">Box Filtering</label>
+                                    <select id="upload-setting-layoutMergeBboxesMode"
+                                        style="padding: 4px; border-radius: 4px; border: 1px solid #555; background: #2a2a2a; color: #e0e0e0; font-size: 0.85em;">
+                                        <option value="large">Large</option>
+                                        <option value="small">Small</option>
+                                        <option value="union">Union</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Text Detection Settings -->
+                        <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #333;">
+                            <h4 style="color: #e0e0e0; margin-bottom: 10px; font-size: 0.9em;">🔤 Text Detection</h4>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;">
+                                <div style="display: flex; flex-direction: column; gap: 4px;">
+                                    <label for="upload-setting-textDetLimitSideLen" style="color: #e0e0e0; font-size: 0.8em;">Side Length Limit</label>
+                                    <input type="number" id="upload-setting-textDetLimitSideLen" min="1" value="64"
+                                        style="padding: 4px; border-radius: 4px; border: 1px solid #555; background: #2a2a2a; color: #e0e0e0; font-size: 0.85em;">
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 4px;">
+                                    <label for="upload-setting-textDetLimitType" style="color: #e0e0e0; font-size: 0.8em;">Limit Type</label>
+                                    <select id="upload-setting-textDetLimitType"
+                                        style="padding: 4px; border-radius: 4px; border: 1px solid #555; background: #2a2a2a; color: #e0e0e0; font-size: 0.85em;">
+                                        <option value="min">Min</option>
+                                        <option value="max">Max</option>
+                                    </select>
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 4px;">
+                                    <label for="upload-setting-textDetThresh" style="color: #e0e0e0; font-size: 0.8em;">Pixel Threshold</label>
+                                    <input type="number" id="upload-setting-textDetThresh" step="0.1" min="0" value="0.3"
+                                        style="padding: 4px; border-radius: 4px; border: 1px solid #555; background: #2a2a2a; color: #e0e0e0; font-size: 0.85em;">
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 4px;">
+                                    <label for="upload-setting-textDetBoxThresh" style="color: #e0e0e0; font-size: 0.8em;">Box Threshold</label>
+                                    <input type="number" id="upload-setting-textDetBoxThresh" step="0.1" min="0" value="0.6"
+                                        style="padding: 4px; border-radius: 4px; border: 1px solid #555; background: #2a2a2a; color: #e0e0e0; font-size: 0.85em;">
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 4px;">
+                                    <label for="upload-setting-textDetUnclipRatio" style="color: #e0e0e0; font-size: 0.8em;">Expansion Coeff</label>
+                                    <input type="number" id="upload-setting-textDetUnclipRatio" step="0.1" min="0" value="1.5"
+                                        style="padding: 4px; border-radius: 4px; border: 1px solid #555; background: #2a2a2a; color: #e0e0e0; font-size: 0.85em;">
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 4px;">
+                                    <label for="upload-setting-textRecScoreThresh" style="color: #e0e0e0; font-size: 0.8em;">Recognition Threshold</label>
+                                    <input type="number" id="upload-setting-textRecScoreThresh" step="0.1" min="0" value="0.0"
+                                        style="padding: 4px; border-radius: 4px; border: 1px solid #555; background: #2a2a2a; color: #e0e0e0; font-size: 0.85em;">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Seal Detection Settings -->
+                        <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #333;">
+                            <h4 style="color: #e0e0e0; margin-bottom: 10px; font-size: 0.9em;">🔖 Seal Detection</h4>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;">
+                                <div style="display: flex; flex-direction: column; gap: 4px;">
+                                    <label for="upload-setting-sealDetLimitSideLen" style="color: #e0e0e0; font-size: 0.8em;">Side Length Limit</label>
+                                    <input type="number" id="upload-setting-sealDetLimitSideLen" min="1" value="736"
+                                        style="padding: 4px; border-radius: 4px; border: 1px solid #555; background: #2a2a2a; color: #e0e0e0; font-size: 0.85em;">
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 4px;">
+                                    <label for="upload-setting-sealDetLimitType" style="color: #e0e0e0; font-size: 0.8em;">Limit Type</label>
+                                    <select id="upload-setting-sealDetLimitType"
+                                        style="padding: 4px; border-radius: 4px; border: 1px solid #555; background: #2a2a2a; color: #e0e0e0; font-size: 0.85em;">
+                                        <option value="min">Min</option>
+                                        <option value="max">Max</option>
+                                    </select>
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 4px;">
+                                    <label for="upload-setting-sealDetThresh" style="color: #e0e0e0; font-size: 0.8em;">Pixel Threshold</label>
+                                    <input type="number" id="upload-setting-sealDetThresh" step="0.1" min="0" value="0.2"
+                                        style="padding: 4px; border-radius: 4px; border: 1px solid #555; background: #2a2a2a; color: #e0e0e0; font-size: 0.85em;">
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 4px;">
+                                    <label for="upload-setting-sealDetBoxThresh" style="color: #e0e0e0; font-size: 0.8em;">Box Threshold</label>
+                                    <input type="number" id="upload-setting-sealDetBoxThresh" step="0.1" min="0" value="0.6"
+                                        style="padding: 4px; border-radius: 4px; border: 1px solid #555; background: #2a2a2a; color: #e0e0e0; font-size: 0.85em;">
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 4px;">
+                                    <label for="upload-setting-sealDetUnclipRatio" style="color: #e0e0e0; font-size: 0.8em;">Expansion Coeff</label>
+                                    <input type="number" id="upload-setting-sealDetUnclipRatio" step="0.1" min="0" value="0.5"
+                                        style="padding: 4px; border-radius: 4px; border: 1px solid #555; background: #2a2a2a; color: #e0e0e0; font-size: 0.85em;">
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 4px;">
+                                    <label for="upload-setting-sealRecScoreThresh" style="color: #e0e0e0; font-size: 0.8em;">Recognition Threshold</label>
+                                    <input type="number" id="upload-setting-sealRecScoreThresh" step="0.1" min="0" value="0.0"
+                                        style="padding: 4px; border-radius: 4px; border: 1px solid #555; background: #2a2a2a; color: #e0e0e0; font-size: 0.85em;">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -4724,13 +4883,13 @@
                                 Recognition <strong>(Required)</strong></label>
                         </div>
                         <div style="display: flex; align-items: center; gap: 10px;">
-                            <input type="checkbox" id="setting-useFormulaRecognition"
+                            <input type="checkbox" id="setting-useFormulaRecognition" checked
                                 style="width: 18px; height: 18px; cursor: pointer;">
                             <label for="setting-useFormulaRecognition" style="color: #e0e0e0; cursor: pointer;">Formula
                                 Recognition</label>
                         </div>
                         <div style="display: flex; align-items: center; gap: 10px;">
-                            <input type="checkbox" id="setting-useChartRecognition"
+                            <input type="checkbox" id="setting-useChartRecognition" checked
                                 style="width: 18px; height: 18px; cursor: pointer;">
                             <label for="setting-useChartRecognition" style="color: #e0e0e0; cursor: pointer;">Chart
                                 Recognition</label>
@@ -4760,10 +4919,169 @@
                                 style="color: #e0e0e0; cursor: pointer;">Document Orientation</label>
                         </div>
                         <div style="display: flex; align-items: center; gap: 10px;">
+                            <input type="checkbox" id="setting-useDocUnwarping"
+                                style="width: 18px; height: 18px; cursor: pointer;">
+                            <label for="setting-useDocUnwarping"
+                                style="color: #e0e0e0; cursor: pointer;">Image Distortion Correction</label>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
                             <input type="checkbox" id="setting-visualize"
                                 style="width: 18px; height: 18px; cursor: pointer;">
                             <label for="setting-visualize" style="color: #e0e0e0; cursor: pointer;">Visualize (Debug
                                 Images)</label>
+                        </div>
+                    </div>
+
+                    <!-- Table Recognition Advanced Settings -->
+                    <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid #333;">
+                        <h3 style="color: #e0e0e0; margin-bottom: 15px; font-size: 1em;">📊 Table Recognition Advanced</h3>
+                        <div style="background: #2a1f0e; border-left: 3px solid #ff9800; padding: 10px; margin-bottom: 15px; border-radius: 4px;">
+                            <p style="color: #ff9800; margin: 0; font-size: 0.85em;">
+                                ⚠️ <strong>Warning:</strong> Enabling "Wired/Wireless Table to HTML" or "End-to-End Table" modes may cause images in table cells to be lost. Keep these disabled if you need product images.
+                            </p>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" id="setting-useWiredTableCellsTransToHtml"
+                                    style="width: 18px; height: 18px; cursor: pointer;">
+                                <label for="setting-useWiredTableCellsTransToHtml" style="color: #e0e0e0; cursor: pointer;">Wired Table to HTML <span style="color: #ff9800; font-size: 0.85em;">⚠️ May lose images</span></label>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" id="setting-useWirelessTableCellsTransToHtml"
+                                    style="width: 18px; height: 18px; cursor: pointer;">
+                                <label for="setting-useWirelessTableCellsTransToHtml" style="color: #e0e0e0; cursor: pointer;">Wireless Table to HTML <span style="color: #ff9800; font-size: 0.85em;">⚠️ May lose images</span></label>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" id="setting-useTableOrientationClassify"
+                                    style="width: 18px; height: 18px; cursor: pointer;">
+                                <label for="setting-useTableOrientationClassify" style="color: #e0e0e0; cursor: pointer;">Table Orientation Correction</label>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" id="setting-useOcrResultsWithTableCells"
+                                    style="width: 18px; height: 18px; cursor: pointer;">
+                                <label for="setting-useOcrResultsWithTableCells" style="color: #e0e0e0; cursor: pointer;">Cell-by-Cell Recognition</label>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" id="setting-useE2eWiredTableRecModel"
+                                    style="width: 18px; height: 18px; cursor: pointer;">
+                                <label for="setting-useE2eWiredTableRecModel" style="color: #e0e0e0; cursor: pointer;">End-to-End Wired Table <span style="color: #ff9800; font-size: 0.85em;">⚠️ May lose images</span></label>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" id="setting-useE2eWirelessTableRecModel"
+                                    style="width: 18px; height: 18px; cursor: pointer;">
+                                <label for="setting-useE2eWirelessTableRecModel" style="color: #e0e0e0; cursor: pointer;">End-to-End Wireless Table <span style="color: #ff9800; font-size: 0.85em;">⚠️ May lose images</span></label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Layout Detection Settings -->
+                    <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid #333;">
+                        <h3 style="color: #e0e0e0; margin-bottom: 15px; font-size: 1em;">📐 Layout Detection</h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+                            <div style="display: flex; flex-direction: column; gap: 5px;">
+                                <label for="setting-layoutThreshold" style="color: #e0e0e0; font-size: 0.9em;">Layout Threshold (0-1)</label>
+                                <input type="number" id="setting-layoutThreshold" step="0.1" min="0" max="1" value="0.5"
+                                    style="padding: 6px; border-radius: 4px; border: 1px solid #555; background: #2a2a2a; color: #e0e0e0; width: 100%;">
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" id="setting-layoutNms"
+                                    style="width: 18px; height: 18px; cursor: pointer;">
+                                <label for="setting-layoutNms" style="color: #e0e0e0; cursor: pointer;">NMS Postprocessing</label>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 5px;">
+                                <label for="setting-layoutUnclipRatio" style="color: #e0e0e0; font-size: 0.9em;">Expansion Coefficient</label>
+                                <input type="number" id="setting-layoutUnclipRatio" step="0.1" min="0" value="1.0"
+                                    style="padding: 6px; border-radius: 4px; border: 1px solid #555; background: #2a2a2a; color: #e0e0e0; width: 100%;">
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 5px;">
+                                <label for="setting-layoutMergeBboxesMode" style="color: #e0e0e0; font-size: 0.9em;">Overlapping Box Filtering</label>
+                                <select id="setting-layoutMergeBboxesMode"
+                                    style="padding: 6px; border-radius: 4px; border: 1px solid #555; background: #2a2a2a; color: #e0e0e0; width: 100%;">
+                                    <option value="large">Large (Keep Largest)</option>
+                                    <option value="small">Small (Keep Smallest)</option>
+                                    <option value="union">Union (Keep Both)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Text Detection Settings -->
+                    <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid #333;">
+                        <h3 style="color: #e0e0e0; margin-bottom: 15px; font-size: 1em;">🔤 Text Detection</h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+                            <div style="display: flex; flex-direction: column; gap: 5px;">
+                                <label for="setting-textDetLimitSideLen" style="color: #e0e0e0; font-size: 0.9em;">Image Side Length Limit</label>
+                                <input type="number" id="setting-textDetLimitSideLen" min="1" value="64"
+                                    style="padding: 6px; border-radius: 4px; border: 1px solid #555; background: #2a2a2a; color: #e0e0e0; width: 100%;">
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 5px;">
+                                <label for="setting-textDetLimitType" style="color: #e0e0e0; font-size: 0.9em;">Side Length Limit Type</label>
+                                <select id="setting-textDetLimitType"
+                                    style="padding: 6px; border-radius: 4px; border: 1px solid #555; background: #2a2a2a; color: #e0e0e0; width: 100%;">
+                                    <option value="min">Min (Shortest Side)</option>
+                                    <option value="max">Max (Longest Side)</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 5px;">
+                                <label for="setting-textDetThresh" style="color: #e0e0e0; font-size: 0.9em;">Pixel Threshold</label>
+                                <input type="number" id="setting-textDetThresh" step="0.1" min="0" value="0.3"
+                                    style="padding: 6px; border-radius: 4px; border: 1px solid #555; background: #2a2a2a; color: #e0e0e0; width: 100%;">
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 5px;">
+                                <label for="setting-textDetBoxThresh" style="color: #e0e0e0; font-size: 0.9em;">Box Threshold</label>
+                                <input type="number" id="setting-textDetBoxThresh" step="0.1" min="0" value="0.6"
+                                    style="padding: 6px; border-radius: 4px; border: 1px solid #555; background: #2a2a2a; color: #e0e0e0; width: 100%;">
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 5px;">
+                                <label for="setting-textDetUnclipRatio" style="color: #e0e0e0; font-size: 0.9em;">Expansion Coefficient</label>
+                                <input type="number" id="setting-textDetUnclipRatio" step="0.1" min="0" value="1.5"
+                                    style="padding: 6px; border-radius: 4px; border: 1px solid #555; background: #2a2a2a; color: #e0e0e0; width: 100%;">
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 5px;">
+                                <label for="setting-textRecScoreThresh" style="color: #e0e0e0; font-size: 0.9em;">Recognition Score Threshold</label>
+                                <input type="number" id="setting-textRecScoreThresh" step="0.1" min="0" value="0.0"
+                                    style="padding: 6px; border-radius: 4px; border: 1px solid #555; background: #2a2a2a; color: #e0e0e0; width: 100%;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Seal Detection Settings -->
+                    <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid #333;">
+                        <h3 style="color: #e0e0e0; margin-bottom: 15px; font-size: 1em;">🔖 Seal Detection</h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+                            <div style="display: flex; flex-direction: column; gap: 5px;">
+                                <label for="setting-sealDetLimitSideLen" style="color: #e0e0e0; font-size: 0.9em;">Image Side Length Limit</label>
+                                <input type="number" id="setting-sealDetLimitSideLen" min="1" value="736"
+                                    style="padding: 6px; border-radius: 4px; border: 1px solid #555; background: #2a2a2a; color: #e0e0e0; width: 100%;">
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 5px;">
+                                <label for="setting-sealDetLimitType" style="color: #e0e0e0; font-size: 0.9em;">Side Length Limit Type</label>
+                                <select id="setting-sealDetLimitType"
+                                    style="padding: 6px; border-radius: 4px; border: 1px solid #555; background: #2a2a2a; color: #e0e0e0; width: 100%;">
+                                    <option value="min">Min (Shortest Side)</option>
+                                    <option value="max">Max (Longest Side)</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 5px;">
+                                <label for="setting-sealDetThresh" style="color: #e0e0e0; font-size: 0.9em;">Pixel Threshold</label>
+                                <input type="number" id="setting-sealDetThresh" step="0.1" min="0" value="0.2"
+                                    style="padding: 6px; border-radius: 4px; border: 1px solid #555; background: #2a2a2a; color: #e0e0e0; width: 100%;">
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 5px;">
+                                <label for="setting-sealDetBoxThresh" style="color: #e0e0e0; font-size: 0.9em;">Box Threshold</label>
+                                <input type="number" id="setting-sealDetBoxThresh" step="0.1" min="0" value="0.6"
+                                    style="padding: 6px; border-radius: 4px; border: 1px solid #555; background: #2a2a2a; color: #e0e0e0; width: 100%;">
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 5px;">
+                                <label for="setting-sealDetUnclipRatio" style="color: #e0e0e0; font-size: 0.9em;">Expansion Coefficient</label>
+                                <input type="number" id="setting-sealDetUnclipRatio" step="0.1" min="0" value="0.5"
+                                    style="padding: 6px; border-radius: 4px; border: 1px solid #555; background: #2a2a2a; color: #e0e0e0; width: 100%;">
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 5px;">
+                                <label for="setting-sealRecScoreThresh" style="color: #e0e0e0; font-size: 0.9em;">Recognition Score Threshold</label>
+                                <input type="number" id="setting-sealRecScoreThresh" step="0.1" min="0" value="0.0"
+                                    style="padding: 6px; border-radius: 4px; border: 1px solid #555; background: #2a2a2a; color: #e0e0e0; width: 100%;">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -6521,12 +6839,84 @@
                 useSealRecognition: document.getElementById('setting-useSealRecognition')?.checked !== false,
                 useTableRecognition: document.getElementById('setting-useTableRecognition')?.checked !== false,
                 useFormulaRecognition: document.getElementById('setting-useFormulaRecognition')?.checked !== false,
-                useChartRecognition: document.getElementById('setting-useChartRecognition')?.checked || false,
+                useChartRecognition: document.getElementById('setting-useChartRecognition')?.checked !== false,
                 useRegionDetection: document.getElementById('setting-useRegionDetection')?.checked !== false,
                 formatBlockContent: document.getElementById('setting-formatBlockContent')?.checked !== false,
                 useTextlineOrientation: document.getElementById('setting-useTextlineOrientation')?.checked || false,
                 useDocOrientationClassify: document.getElementById('setting-useDocOrientationClassify')?.checked || false,
-                visualize: document.getElementById('setting-visualize')?.checked !== false
+                useDocUnwarping: document.getElementById('setting-useDocUnwarping')?.checked || false,
+                visualize: document.getElementById('setting-visualize')?.checked !== false,
+                // Table Recognition Advanced
+                useWiredTableCellsTransToHtml: document.getElementById('setting-useWiredTableCellsTransToHtml')?.checked || false,
+                useWirelessTableCellsTransToHtml: document.getElementById('setting-useWirelessTableCellsTransToHtml')?.checked || false,
+                useTableOrientationClassify: document.getElementById('setting-useTableOrientationClassify')?.checked || false,
+                useOcrResultsWithTableCells: document.getElementById('setting-useOcrResultsWithTableCells')?.checked || false,
+                useE2eWiredTableRecModel: document.getElementById('setting-useE2eWiredTableRecModel')?.checked || false,
+                useE2eWirelessTableRecModel: document.getElementById('setting-useE2eWirelessTableRecModel')?.checked || false,
+                // Layout Detection (only send if different from API defaults)
+                layoutThreshold: (() => {
+                    const val = parseFloat(document.getElementById('setting-layoutThreshold')?.value);
+                    return (val && val !== 0.5) ? val : null;
+                })(),
+                layoutNms: document.getElementById('setting-layoutNms')?.checked ? true : null,
+                layoutUnclipRatio: (() => {
+                    const val = parseFloat(document.getElementById('setting-layoutUnclipRatio')?.value);
+                    return (val && val !== 1.0) ? val : null;
+                })(),
+                layoutMergeBboxesMode: (() => {
+                    const val = document.getElementById('setting-layoutMergeBboxesMode')?.value;
+                    return (val && val !== 'large') ? val : null;
+                })(),
+                // Text Detection (only send if different from API defaults)
+                textDetLimitSideLen: (() => {
+                    const val = parseInt(document.getElementById('setting-textDetLimitSideLen')?.value);
+                    return (val && val !== 64) ? val : null;
+                })(),
+                textDetLimitType: (() => {
+                    const val = document.getElementById('setting-textDetLimitType')?.value;
+                    return (val && val !== 'min') ? val : null;
+                })(),
+                textDetThresh: (() => {
+                    const val = parseFloat(document.getElementById('setting-textDetThresh')?.value);
+                    return (val && val !== 0.3) ? val : null;
+                })(),
+                textDetBoxThresh: (() => {
+                    const val = parseFloat(document.getElementById('setting-textDetBoxThresh')?.value);
+                    return (val && val !== 0.6) ? val : null;
+                })(),
+                textDetUnclipRatio: (() => {
+                    const val = parseFloat(document.getElementById('setting-textDetUnclipRatio')?.value);
+                    return (val && val !== 1.5) ? val : null;
+                })(),
+                textRecScoreThresh: (() => {
+                    const val = parseFloat(document.getElementById('setting-textRecScoreThresh')?.value);
+                    return (val && val !== 0.0) ? val : null;
+                })(),
+                // Seal Detection (only send if different from API defaults)
+                sealDetLimitSideLen: (() => {
+                    const val = parseInt(document.getElementById('setting-sealDetLimitSideLen')?.value);
+                    return (val && val !== 736) ? val : null;
+                })(),
+                sealDetLimitType: (() => {
+                    const val = document.getElementById('setting-sealDetLimitType')?.value;
+                    return (val && val !== 'min') ? val : null;
+                })(),
+                sealDetThresh: (() => {
+                    const val = parseFloat(document.getElementById('setting-sealDetThresh')?.value);
+                    return (val && val !== 0.2) ? val : null;
+                })(),
+                sealDetBoxThresh: (() => {
+                    const val = parseFloat(document.getElementById('setting-sealDetBoxThresh')?.value);
+                    return (val && val !== 0.6) ? val : null;
+                })(),
+                sealDetUnclipRatio: (() => {
+                    const val = parseFloat(document.getElementById('setting-sealDetUnclipRatio')?.value);
+                    return (val && val !== 0.5) ? val : null;
+                })(),
+                sealRecScoreThresh: (() => {
+                    const val = parseFloat(document.getElementById('setting-sealRecScoreThresh')?.value);
+                    return (val && val !== 0.0) ? val : null;
+                })()
             };
         }
 
@@ -6548,12 +6938,84 @@
                 useSealRecognition: document.getElementById('upload-setting-useSealRecognition')?.checked !== false,
                 useTableRecognition: document.getElementById('upload-setting-useTableRecognition')?.checked !== false,
                 useFormulaRecognition: document.getElementById('upload-setting-useFormulaRecognition')?.checked !== false,
-                useChartRecognition: document.getElementById('upload-setting-useChartRecognition')?.checked || false,
+                useChartRecognition: document.getElementById('upload-setting-useChartRecognition')?.checked !== false,
                 useRegionDetection: document.getElementById('upload-setting-useRegionDetection')?.checked !== false,
                 formatBlockContent: document.getElementById('upload-setting-formatBlockContent')?.checked !== false,
                 useTextlineOrientation: document.getElementById('upload-setting-useTextlineOrientation')?.checked || false,
                 useDocOrientationClassify: document.getElementById('upload-setting-useDocOrientationClassify')?.checked || false,
-                visualize: document.getElementById('upload-setting-visualize')?.checked !== false
+                useDocUnwarping: document.getElementById('upload-setting-useDocUnwarping')?.checked || false,
+                visualize: document.getElementById('upload-setting-visualize')?.checked !== false,
+                // Table Recognition Advanced
+                useWiredTableCellsTransToHtml: document.getElementById('upload-setting-useWiredTableCellsTransToHtml')?.checked || false,
+                useWirelessTableCellsTransToHtml: document.getElementById('upload-setting-useWirelessTableCellsTransToHtml')?.checked || false,
+                useTableOrientationClassify: document.getElementById('upload-setting-useTableOrientationClassify')?.checked || false,
+                useOcrResultsWithTableCells: document.getElementById('upload-setting-useOcrResultsWithTableCells')?.checked || false,
+                useE2eWiredTableRecModel: document.getElementById('upload-setting-useE2eWiredTableRecModel')?.checked || false,
+                useE2eWirelessTableRecModel: document.getElementById('upload-setting-useE2eWirelessTableRecModel')?.checked || false,
+                // Layout Detection (only send if different from API defaults)
+                layoutThreshold: (() => {
+                    const val = parseFloat(document.getElementById('upload-setting-layoutThreshold')?.value);
+                    return (val && val !== 0.5) ? val : null;
+                })(),
+                layoutNms: document.getElementById('upload-setting-layoutNms')?.checked ? true : null,
+                layoutUnclipRatio: (() => {
+                    const val = parseFloat(document.getElementById('upload-setting-layoutUnclipRatio')?.value);
+                    return (val && val !== 1.0) ? val : null;
+                })(),
+                layoutMergeBboxesMode: (() => {
+                    const val = document.getElementById('upload-setting-layoutMergeBboxesMode')?.value;
+                    return (val && val !== 'large') ? val : null;
+                })(),
+                // Text Detection (only send if different from API defaults)
+                textDetLimitSideLen: (() => {
+                    const val = parseInt(document.getElementById('upload-setting-textDetLimitSideLen')?.value);
+                    return (val && val !== 64) ? val : null;
+                })(),
+                textDetLimitType: (() => {
+                    const val = document.getElementById('upload-setting-textDetLimitType')?.value;
+                    return (val && val !== 'min') ? val : null;
+                })(),
+                textDetThresh: (() => {
+                    const val = parseFloat(document.getElementById('upload-setting-textDetThresh')?.value);
+                    return (val && val !== 0.3) ? val : null;
+                })(),
+                textDetBoxThresh: (() => {
+                    const val = parseFloat(document.getElementById('upload-setting-textDetBoxThresh')?.value);
+                    return (val && val !== 0.6) ? val : null;
+                })(),
+                textDetUnclipRatio: (() => {
+                    const val = parseFloat(document.getElementById('upload-setting-textDetUnclipRatio')?.value);
+                    return (val && val !== 1.5) ? val : null;
+                })(),
+                textRecScoreThresh: (() => {
+                    const val = parseFloat(document.getElementById('upload-setting-textRecScoreThresh')?.value);
+                    return (val && val !== 0.0) ? val : null;
+                })(),
+                // Seal Detection (only send if different from API defaults)
+                sealDetLimitSideLen: (() => {
+                    const val = parseInt(document.getElementById('upload-setting-sealDetLimitSideLen')?.value);
+                    return (val && val !== 736) ? val : null;
+                })(),
+                sealDetLimitType: (() => {
+                    const val = document.getElementById('upload-setting-sealDetLimitType')?.value;
+                    return (val && val !== 'min') ? val : null;
+                })(),
+                sealDetThresh: (() => {
+                    const val = parseFloat(document.getElementById('upload-setting-sealDetThresh')?.value);
+                    return (val && val !== 0.2) ? val : null;
+                })(),
+                sealDetBoxThresh: (() => {
+                    const val = parseFloat(document.getElementById('upload-setting-sealDetBoxThresh')?.value);
+                    return (val && val !== 0.6) ? val : null;
+                })(),
+                sealDetUnclipRatio: (() => {
+                    const val = parseFloat(document.getElementById('upload-setting-sealDetUnclipRatio')?.value);
+                    return (val && val !== 0.5) ? val : null;
+                })(),
+                sealRecScoreThresh: (() => {
+                    const val = parseFloat(document.getElementById('upload-setting-sealRecScoreThresh')?.value);
+                    return (val && val !== 0.0) ? val : null;
+                })()
             };
         }
 
@@ -7050,16 +7512,49 @@
 
         // Reset extraction settings to defaults from example JSON
         function resetExtractionSettings() {
+            // Basic settings
             document.getElementById('setting-useDocPreprocessor').checked = false;
             document.getElementById('setting-useSealRecognition').checked = true;
             document.getElementById('setting-useTableRecognition').checked = true;
-            document.getElementById('setting-useFormulaRecognition').checked = false;
-            document.getElementById('setting-useChartRecognition').checked = false;
+            document.getElementById('setting-useFormulaRecognition').checked = true;
+            document.getElementById('setting-useChartRecognition').checked = true;
             document.getElementById('setting-useRegionDetection').checked = true;
             document.getElementById('setting-formatBlockContent').checked = true;
             document.getElementById('setting-useTextlineOrientation').checked = false;
             document.getElementById('setting-useDocOrientationClassify').checked = false;
+            document.getElementById('setting-useDocUnwarping').checked = false;
             document.getElementById('setting-visualize').checked = false;
+            
+            // Table Recognition Advanced
+            document.getElementById('setting-useWiredTableCellsTransToHtml').checked = false;
+            document.getElementById('setting-useWirelessTableCellsTransToHtml').checked = false;
+            document.getElementById('setting-useTableOrientationClassify').checked = false;
+            document.getElementById('setting-useOcrResultsWithTableCells').checked = false;
+            document.getElementById('setting-useE2eWiredTableRecModel').checked = false;
+            document.getElementById('setting-useE2eWirelessTableRecModel').checked = false;
+            
+            // Layout Detection
+            document.getElementById('setting-layoutThreshold').value = '0.5';
+            document.getElementById('setting-layoutNms').checked = false;
+            document.getElementById('setting-layoutUnclipRatio').value = '1.0';
+            document.getElementById('setting-layoutMergeBboxesMode').value = 'large';
+            
+            // Text Detection
+            document.getElementById('setting-textDetLimitSideLen').value = '64';
+            document.getElementById('setting-textDetLimitType').value = 'min';
+            document.getElementById('setting-textDetThresh').value = '0.3';
+            document.getElementById('setting-textDetBoxThresh').value = '0.6';
+            document.getElementById('setting-textDetUnclipRatio').value = '1.5';
+            document.getElementById('setting-textRecScoreThresh').value = '0.0';
+            
+            // Seal Detection
+            document.getElementById('setting-sealDetLimitSideLen').value = '736';
+            document.getElementById('setting-sealDetLimitType').value = 'min';
+            document.getElementById('setting-sealDetThresh').value = '0.2';
+            document.getElementById('setting-sealDetBoxThresh').value = '0.6';
+            document.getElementById('setting-sealDetUnclipRatio').value = '0.5';
+            document.getElementById('setting-sealRecScoreThresh').value = '0.0';
+            
             showAlert('Settings reset to defaults from example JSON', 'success');
         }
 

@@ -404,14 +404,32 @@ def upload_and_extract():
                 "useDocPreprocessor": extraction_settings.get("useDocPreprocessor", False),
                 "useSealRecognition": extraction_settings.get("useSealRecognition", True),
                 "useTableRecognition": extraction_settings.get("useTableRecognition", True),
-                "useFormulaRecognition": extraction_settings.get("useFormulaRecognition", False),
-                "useChartRecognition": extraction_settings.get("useChartRecognition", False),
+                "useFormulaRecognition": extraction_settings.get("useFormulaRecognition", True),
+                "useChartRecognition": extraction_settings.get("useChartRecognition", True),
                 "useRegionDetection": extraction_settings.get("useRegionDetection", True),
                 "formatBlockContent": extraction_settings.get("formatBlockContent", True),
                 "useTextlineOrientation": extraction_settings.get("useTextlineOrientation", False),
                 "useDocOrientationClassify": extraction_settings.get("useDocOrientationClassify", False),
+                "useDocUnwarping": extraction_settings.get("useDocUnwarping", False),
                 "visualize": extraction_settings.get("visualize", False)
             }
+            
+            # Add optional settings only if they are provided (not None)
+            optional_settings = [
+                "useWiredTableCellsTransToHtml", "useWirelessTableCellsTransToHtml",
+                "useTableOrientationClassify", "useOcrResultsWithTableCells",
+                "useE2eWiredTableRecModel", "useE2eWirelessTableRecModel",
+                "layoutThreshold", "layoutNms", "layoutUnclipRatio", "layoutMergeBboxesMode",
+                "textDetLimitSideLen", "textDetLimitType", "textDetThresh",
+                "textDetBoxThresh", "textDetUnclipRatio", "textRecScoreThresh",
+                "sealDetLimitSideLen", "sealDetLimitType", "sealDetThresh",
+                "sealDetBoxThresh", "sealDetUnclipRatio", "sealRecScoreThresh"
+            ]
+            
+            for setting in optional_settings:
+                value = extraction_settings.get(setting)
+                if value is not None:
+                    payload[setting] = value
             
             # Call extraction API - increased timeout for large files
             timeout = 300 if file_size > 5 * 1024 * 1024 else 180  # 5 min for >5MB, 3 min for smaller
@@ -825,13 +843,31 @@ def extract_table(file_id):
             "useSealRecognition": settings.get("useSealRecognition", True),
             "useTableRecognition": settings.get("useTableRecognition", True),
             "useFormulaRecognition": settings.get("useFormulaRecognition", True),
-            "useChartRecognition": settings.get("useChartRecognition", False),
+            "useChartRecognition": settings.get("useChartRecognition", True),
             "useRegionDetection": settings.get("useRegionDetection", True),
             "formatBlockContent": settings.get("formatBlockContent", True),
             "useTextlineOrientation": settings.get("useTextlineOrientation", False),
             "useDocOrientationClassify": settings.get("useDocOrientationClassify", False),
+            "useDocUnwarping": settings.get("useDocUnwarping", False),
             "visualize": settings.get("visualize", True)
         }
+        
+        # Add optional settings only if they are provided (not None)
+        optional_settings = [
+            "useWiredTableCellsTransToHtml", "useWirelessTableCellsTransToHtml",
+            "useTableOrientationClassify", "useOcrResultsWithTableCells",
+            "useE2eWiredTableRecModel", "useE2eWirelessTableRecModel",
+            "layoutThreshold", "layoutNms", "layoutUnclipRatio", "layoutMergeBboxesMode",
+            "textDetLimitSideLen", "textDetLimitType", "textDetThresh",
+            "textDetBoxThresh", "textDetUnclipRatio", "textRecScoreThresh",
+            "sealDetLimitSideLen", "sealDetLimitType", "sealDetThresh",
+            "sealDetBoxThresh", "sealDetUnclipRatio", "sealRecScoreThresh"
+        ]
+        
+        for setting in optional_settings:
+            value = settings.get(setting)
+            if value is not None:
+                payload[setting] = value
         
         logger.info(f'Extraction settings: {json.dumps({k: v for k, v in payload.items() if k != "file"}, indent=2)}')
         
