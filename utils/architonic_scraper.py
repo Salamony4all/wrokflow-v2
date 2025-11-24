@@ -118,6 +118,10 @@ class ArchitonicScraper:
                 
                 # Parse category/subcategory from collection name
                 # Remove product count if present (e.g. "Name\n10 Products")
+                # Skip if collection_name is None
+                if not collection_name:
+                    continue
+                    
                 clean_name = collection_name.split('\n')[0].strip()
                 category = clean_name
                 subcategory = None
@@ -1221,6 +1225,9 @@ class ArchitonicScraper:
         category_tree = {}
         
         for collection_name, collection_info in collections_data.items():
+            # Skip if collection_name is None
+            if not collection_name:
+                continue
             # Clean collection name (remove product count)
             clean_name = collection_name.split('\n')[0].strip()
             

@@ -2810,6 +2810,10 @@ def _scrape_single_brand(brand_info):
                 if not collection_data or not collection_data.get('products'):
                     continue
                 
+                # Skip if collection_name is None
+                if not collection_name:
+                    continue
+                
                 clean_name = collection_name.split('\n')[0].strip()
                 
                 # Determine Category and Subcategory
