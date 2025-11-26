@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 import logging
 import time
 import re
+import urllib.robotparser
 from urllib.parse import urljoin, urlparse
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime
@@ -150,6 +151,20 @@ class UniversalBrandScraper:
         self.tree_builder = CategoryTreeBuilder()
         self._page_cache = {}  # Cache for repeated page requests
     
+    def check_robots_allowed(self, website: str) -> bool:
+        """Check if scraping is allowed by robots.txt"""
+        try:
+            rp = urllib.robotparser.RobotFileParser()
+            robots_url = urljoin(website, '/robots.txt')
+            rp.set_url(robots_url)
+            rp.read()
+            
+            # Check if our user agent can fetch the site
+            return rp.can_fetch(self.headers['User-Agent'], website)
+        except Exception as e:
+            logger.warning(f"Could not read robots.txt: {e}")
+            return True  # Allow by default if robots.txt is not accessible
+    
     def scrape_brand_website(self, website: str, brand_name: str, use_selenium: bool = True) -> Dict:
         """
         Main entry point - intelligently scrapes any brand website
@@ -157,11 +172,15 @@ class UniversalBrandScraper:
         """
         logger.info(f"Starting universal scrape of {website}")
         
+        # Check robots.txt (non-blocking, just warning)
+        if not self.check_robots_allowed(website):
+            logger.warning(f"⚠️  Scraping not allowed by robots.txt for {website}, continuing anyway")
+        
         # Check if Architonic
         if ARCHITONIC_AVAILABLE and 'architonic.com' in website.lower():
             logger.info("Detected Architonic website")
-            architonic_scraper = ArchitonicScraper()
-            return architonic_scraper.scrape_brand_website(website, brand_name)
+            architonic_scraper = ArchitonicScraper(use_selenium=use_selenium)
+            return architonic_scraper.scrape_collection(website, brand_name)
         
         # Determine if JavaScript is needed
         needs_js = use_selenium or self._detect_javascript_required(website)
@@ -383,8 +402,19 @@ class UniversalBrandScraper:
         try:
             logger.info(f"Navigating to collection: {url}")
             scraper.get_page(url, wait_time=10)
-            scraper.scroll_to_bottom(pause_time=2.0)
-            time.sleep(3)
+            
+            # For typology pages, wait longer for JavaScript to load products
+            is_typology = '/typologies/' in url.lower()
+            if is_typology:
+                logger.info("Typology page detected - waiting for JavaScript to load products...")
+                scraper.scroll_to_bottom(pause_time=2.0)
+                time.sleep(5)  # Extra wait for JS-rendered content
+                # Scroll again to trigger lazy loading
+                scraper.scroll_to_bottom(pause_time=1.0)
+                time.sleep(3)
+            else:
+                scraper.scroll_to_bottom(pause_time=2.0)
+                time.sleep(3)
             
             page_count = 0
             max_pages = 10
@@ -403,11 +433,13 @@ class UniversalBrandScraper:
                 new_products = 0
                 for prod in page_products:
                     if prod['source_url'] not in existing_urls:
+                        # Enrich product with description before adding
+                        self._enrich_product_with_description(prod, scraper)
                         products.append(prod)
                         existing_urls.add(prod['source_url'])
                         new_products += 1
                 
-                logger.info(f"Added {new_products} new products (total: {len(products)})")
+                logger.info(f"Added {new_products} new products with descriptions (total: {len(products)})")
                 
                 # If no products found on this page, stop pagination
                 if len(page_products) == 0:
@@ -434,6 +466,27 @@ class UniversalBrandScraper:
         Returns: {collection_name: {'url': ..., 'category': ..., 'subcategory': ...}}
         """
         raw_collections = {}
+        
+        # Strategy 0: Special handling for typology-based sites (LAS.it style)
+        # Check if we're on a products page with typologies
+        if '/products' in base_url.lower() or '/product' in base_url.lower():
+            typology_collections = self._detect_typology_categories(soup, base_url)
+            if typology_collections:
+                logger.info(f"Found {len(typology_collections)} typology categories (LAS.it style)")
+                raw_collections.update(typology_collections)
+                # If we found typologies, skip other strategies to avoid navigation noise
+                logger.info(f"Detected {len(raw_collections)} raw collections (typology-based)")
+                if self.config.get('detect_general_category', True):
+                    collections = self.tree_builder.build_tree(raw_collections)
+                    logger.info(f"After hierarchy optimization: {len(collections)} collections")
+                else:
+                    collections = raw_collections
+                if self.config.get('hierarchy_validation', True):
+                    if not self.tree_builder.validate_structure(collections):
+                        logger.warning("Hierarchy validation failed, using raw collections")
+                        collections = raw_collections
+                logger.info(f"Final collections count: {len(collections)}")
+                return collections
         
         # Strategy 1: Navigation menu with submenus (primary)
         nav_collections = self._detect_from_navigation(soup, base_url)
@@ -470,6 +523,58 @@ class UniversalBrandScraper:
                 collections = raw_collections
         
         logger.info(f"Final collections count: {len(collections)}")
+        return collections
+    
+    def _detect_typology_categories(self, soup: BeautifulSoup, base_url: str) -> Dict:
+        """
+        Detect typology categories for LAS.it and similar sites
+        Looks for /typologies/ links and extracts category names
+        """
+        collections = {}
+        
+        # Find all typology links
+        typology_links = soup.find_all('a', href=re.compile(r'/typologies/', re.I))
+        logger.info(f"Found {len(typology_links)} typology links")
+        
+        for link in typology_links:
+            href = link.get('href', '').strip()
+            if not href:
+                continue
+            
+            full_url = urljoin(base_url, href)
+            
+            # Get category name from link text or nearby heading
+            text = link.get_text(strip=True)
+            
+            # Skip generic links
+            if text.lower() in ['find out more', 'read more', 'view', 'see more', '']:
+                # Try to get from parent/section heading
+                parent = link.find_parent(['div', 'article', 'section', 'li'])
+                if parent:
+                    heading = parent.find(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
+                    if heading:
+                        text = heading.get_text(strip=True)
+            
+            # If still no text, extract from URL
+            if not text or len(text) < 2:
+                url_parts = [p for p in href.split('/') if p]
+                if 'typologies' in url_parts:
+                    typology_index = url_parts.index('typologies')
+                    if typology_index + 1 < len(url_parts):
+                        category_slug = url_parts[typology_index + 1]
+                        text = category_slug.replace('-', ' ').replace('_', ' ').title()
+            
+            if text and len(text) >= 2:
+                # Clean up text
+                text = self._clean_category_name(text)
+                if text and text not in collections:
+                    collections[text] = {
+                        'url': full_url,
+                        'category': text,
+                        'subcategory': None
+                    }
+                    logger.info(f"  ✓ Found typology: {text} -> {full_url}")
+        
         return collections
     
     def _detect_from_navigation(self, soup: BeautifulSoup, base_url: str) -> Dict:
@@ -547,6 +652,58 @@ class UniversalBrandScraper:
                                 }
         
         logger.info(f"Navigation detection: {len(collections)} total, {len(parent_has_children)} parents with children")
+        return collections
+    
+    def _detect_typology_categories(self, soup: BeautifulSoup, base_url: str) -> Dict:
+        """
+        Detect typology categories for LAS.it and similar sites
+        Looks for /typologies/ links and extracts category names
+        """
+        collections = {}
+        
+        # Find all typology links
+        typology_links = soup.find_all('a', href=re.compile(r'/typologies/', re.I))
+        logger.info(f"Found {len(typology_links)} typology links")
+        
+        for link in typology_links:
+            href = link.get('href', '').strip()
+            if not href:
+                continue
+            
+            full_url = urljoin(base_url, href)
+            
+            # Get category name from link text or nearby heading
+            text = link.get_text(strip=True)
+            
+            # Skip generic links
+            if text.lower() in ['find out more', 'read more', 'view', 'see more', '']:
+                # Try to get from parent/section heading
+                parent = link.find_parent(['div', 'article', 'section', 'li'])
+                if parent:
+                    heading = parent.find(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
+                    if heading:
+                        text = heading.get_text(strip=True)
+            
+            # If still no text, extract from URL
+            if not text or len(text) < 2:
+                url_parts = [p for p in href.split('/') if p]
+                if 'typologies' in url_parts:
+                    typology_index = url_parts.index('typologies')
+                    if typology_index + 1 < len(url_parts):
+                        category_slug = url_parts[typology_index + 1]
+                        text = category_slug.replace('-', ' ').replace('_', ' ').title()
+            
+            if text and len(text) >= 2:
+                # Clean up text
+                text = self._clean_category_name(text)
+                if text and text not in collections:
+                    collections[text] = {
+                        'url': full_url,
+                        'category': text,
+                        'subcategory': None
+                    }
+                    logger.info(f"  ✓ Found typology: {text} -> {full_url}")
+        
         return collections
     
     def _detect_from_category_grid(self, soup: BeautifulSoup, base_url: str) -> Dict:
@@ -665,7 +822,42 @@ class UniversalBrandScraper:
         # Remove counts (e.g. "Chairs (10)")
         name = re.sub(r'\s*\(\d+\)$', '', name)
         
+        # Remove common navigation artifacts
+        name = re.sub(r'^(View|See|Show|All)\s+', '', name, flags=re.I)
+        
         return name.strip()
+    
+    def _extract_product_features(self, soup: BeautifulSoup) -> List[str]:
+        """Extract product features/specifications from product page"""
+        features = []
+        
+        try:
+            # Look for feature lists
+            feature_lists = soup.find_all(['ul', 'ol'], class_=re.compile(r'(feature|spec|benefit|specification)', re.I))
+            
+            for feature_list in feature_lists[:2]:  # Limit to 2 lists
+                for item in feature_list.find_all('li')[:10]:  # Max 10 features per list
+                    text = item.get_text(strip=True)
+                    if text and len(text) < 200:  # Reasonable feature length
+                        features.append(text)
+            
+            # Also look for specification tables
+            spec_tables = soup.find_all('table', class_=re.compile(r'(spec|feature|detail)', re.I))
+            for table in spec_tables[:1]:  # Limit to 1 table
+                rows = table.find_all('tr')[:10]  # Max 10 rows
+                for row in rows:
+                    cells = row.find_all(['td', 'th'])
+                    if len(cells) >= 2:
+                        # Format as "Key: Value"
+                        key = cells[0].get_text(strip=True)
+                        value = cells[1].get_text(strip=True)
+                        if key and value and len(key) < 50 and len(value) < 100:
+                            features.append(f"{key}: {value}")
+        
+        except Exception as e:
+            logger.debug(f"Error extracting features: {e}")
+        
+        return features[:15]  # Limit total features to 15
     
     def _try_next_page(self, scraper: SeleniumScraper) -> bool:
         """Try to navigate to next page"""
@@ -690,6 +882,76 @@ class UniversalBrandScraper:
                 continue
         
         return False
+    
+    def _enrich_product_with_description(self, product: Dict, scraper: SeleniumScraper):
+        """Enrich a product with description by visiting its detail page"""
+        try:
+            if not product.get('source_url'):
+                return
+            
+            scraper.get_page(product['source_url'], wait_time=3)
+            soup = BeautifulSoup(scraper.driver.page_source, 'html.parser')
+            
+            # Extract description using multiple strategies
+            description = None
+            
+            # Strategy 1: Common description selectors
+            desc_selectors = [
+                'div.entry-content',
+                'div.product-content',
+                'div.content p',
+                'article p',
+                'section.product-description',
+                'div.description',
+                'div.woocommerce-product-details__short-description',
+                'div.product-short-description',
+                'div[itemprop="description"]',
+                'div#tab-description',
+                'div.woocommerce-Tabs-panel--description'
+            ]
+            
+            for selector in desc_selectors:
+                desc_elem = soup.select_one(selector)
+                if desc_elem:
+                    # Remove script, style, nav, header, footer
+                    for tag in desc_elem.find_all(['script', 'style', 'nav', 'header', 'footer', 'button', 'a']):
+                        tag.decompose()
+                    
+                    desc_text = desc_elem.get_text(separator=' ', strip=True)
+                    if desc_text and len(desc_text) > 30:  # Minimum description length
+                        description = desc_text
+                        break
+            
+            # Strategy 2: Try to find main content area
+            if not description:
+                main_content = soup.find('main') or soup.find('article') or soup.find('div', class_=re.compile(r'content|main', re.I))
+                if main_content:
+                    # Get all paragraphs
+                    paragraphs = main_content.find_all('p')
+                    if paragraphs:
+                        desc_text = ' '.join(p.get_text(strip=True) for p in paragraphs[:5])
+                        if desc_text and len(desc_text) > 30:
+                            description = desc_text
+            
+            # Clean up description
+            if description:
+                # Remove extra whitespace
+                description = re.sub(r'\s+', ' ', description).strip()
+                # Remove common unwanted text
+                unwanted = ['add to cart', 'add to wishlist', 'share:', 'sku:', 'categories:', 'tags:', 'read more', 'view all']
+                for unwanted_text in unwanted:
+                    description = re.sub(unwanted_text, '', description, flags=re.IGNORECASE)
+                description = description.strip()
+                
+                # Limit description length
+                if len(description) > 1000:
+                    description = description[:1000] + '...'
+            
+            product['description'] = description or ''
+            
+        except Exception as e:
+            logger.debug(f"Could not fetch description for {product.get('source_url', 'unknown')}: {e}")
+            product['description'] = ''
     
     def fetch_product_details(self, product_url: str, use_selenium: bool = False) -> Dict:
         """
@@ -734,6 +996,11 @@ class UniversalBrandScraper:
                         details['description'] = desc_text
                         break
             
+            # Extract product features/specifications
+            features = self._extract_product_features(soup)
+            if features:
+                details['features'] = features
+            
             # Extract main image
             img_selectors = [
                 soup.find('img', class_=re.compile(r'product.*image', re.I)),
@@ -750,14 +1017,7 @@ class UniversalBrandScraper:
                             details['image_url'] = urljoin(product_url, image_url)
                             break
             
-            # Extract features/specifications
-            spec_containers = soup.find_all(['ul', 'div'], class_=re.compile(r'(spec|feature|attribute)', re.I))
-            for container in spec_containers:
-                items = container.find_all('li') if container.name == 'ul' else container.find_all(['p', 'div'])
-                for item in items[:10]:  # Limit to 10 features
-                    text = item.get_text(strip=True)
-                    if text and len(text) > 5 and len(text) < 200:
-                        details['features'].append(text)
+            # Features already extracted above via _extract_product_features
             
             # Extract price
             price_selectors = [
@@ -908,8 +1168,18 @@ class UniversalBrandScraper:
             product_url = urljoin(base_url, link_elem['href']) if link_elem else None
             
             # Skip if URL looks like a category
-            if product_url and ('/product-category/' in product_url or '/category/' in product_url):
-                return None
+            if product_url:
+                # Skip category URLs
+                if any(pattern in product_url.lower() for pattern in ['/product-category/', '/category/', '/typologies/']):
+                    # But allow if it's a product within typology (deeper path)
+                    if '/typologies/' in product_url.lower():
+                        path_parts = [p for p in product_url.split('/') if p]
+                        typology_index = [i for i, p in enumerate(path_parts) if 'typologies' in p.lower()]
+                        if typology_index and len(path_parts) <= typology_index[0] + 2:
+                            # This is just the typology category page, not a product
+                            return None
+                    else:
+                        return None
             
             # Find title - try multiple strategies
             title = None
@@ -972,7 +1242,7 @@ class UniversalBrandScraper:
             
             # Only return if we have at least a title or a product URL
             if title or product_url:
-                return {
+                product = {
                     'brand': brand_name,
                     'model': title or 'Unknown Product',
                     'image_url': image_url,
@@ -980,8 +1250,10 @@ class UniversalBrandScraper:
                     'source_url': product_url or base_url,
                     'collection': coll_info.get('collection', 'General'),
                     'category': coll_info.get('category', 'General'),
-                    'subcategory': coll_info.get('subcategory', 'General')
+                    'subcategory': coll_info.get('subcategory', 'General'),
+                    'description': ''  # Will be populated if fetch_product_details is called
                 }
+                return product
             
             return None
             
