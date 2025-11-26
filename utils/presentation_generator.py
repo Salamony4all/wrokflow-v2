@@ -566,11 +566,11 @@ class PresentationGenerator:
         desc_p.space_after = Pt(10)
         
         # Key Details with icons/bullets
-                p = details_frame.add_paragraph()
+        p = details_frame.add_paragraph()
         p.text = f"🏢 Brand: {item['brand']}"
         p.font.size = Pt(13)
         p.font.bold = True
-                p.space_after = Pt(6)
+        p.space_after = Pt(6)
         
         p = details_frame.add_paragraph()
         p.text = f"📦 Quantity: {item['qty']} {item['unit']}"
