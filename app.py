@@ -1937,7 +1937,11 @@ def generate_presentation(file_id):
             'message': f'Presentation generated successfully as {format_type.upper()}'
         })
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        logger.exception('Error generating presentation')
+        import traceback
+        error_details = traceback.format_exc()
+        logger.error(f"Full traceback: {error_details}")
+        return jsonify({'error': str(e), 'details': error_details}), 500
 
 @app.route('/generate-mas/<file_id>', methods=['POST'])
 def generate_mas(file_id):
