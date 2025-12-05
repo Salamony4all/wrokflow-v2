@@ -1,13 +1,2 @@
 [phases.setup]
-nixPkgs = [
-    "libreoffice",
-    "ghostscript",
-    "tesseract",
-    "poppler_utils"
-]
-
-[phases.install]
-cmds = ["pip install -r requirements.txt"]
-
-[start]
-cmd = "python app.py"
+aptPkgs = ["libreoffice", "ghostscript", "tesseract-ocr", "poppler-utils"]
