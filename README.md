@@ -1,25 +1,33 @@
-# Questemate - BOQ Extraction & Estimation Platform
+# Automated Workflow v2 - Furniture BOQ Processing Platform
 
-> **AI-Powered Bill of Quantities (BOQ) Processing & Commercial Offer Generation System**
+> **AI-Powered Bill of Quantities extraction and automated commercial offer generation for furniture projects**
 
-[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)
-[![Flask](https://img.shields.io/badge/Flask-3.0+-green.svg)](https://flask.palletsprojects.com/)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+## 🎯 App Features
 
-## 🎯 Overview
+**Automated Document Processing**
+- 📄 Extract BOQ tables from PDF documents using AI-powered table detection
+- 🖼️ Process product images and match them to specifications
+- 📊 Convert Excel/PDF quotes into structured data
 
-Questemate is an intelligent document processing platform that automates the extraction, analysis, and estimation of Bill of Quantities (BOQ) from PDF documents. It leverages AI-powered table extraction, intelligent data processing, and automated offer generation to streamline the entire quotation workflow.
+**Interactive Editing & Costing**
+- ✏️ Fully editable tables with real-time calculations
+- 💰 Apply margins, freight, customs, and exchange rates automatically
+- 🔢 Multiple costing tiers: budgetary, mid-range, and high-end alternatives
 
-### Key Features
+**Smart Brand Database**
+- 🌐 Web scraping for 100+ furniture brands with automatic fallback detection
+- 🔍 Intelligent product matching and enrichment
+- 💾 Persistent storage with Railway volume support
 
-- 🤖 **AI-Powered Extraction** - Uses PP-StructureV3 API for intelligent table detection and extraction
-- 📊 **Interactive Table Editor** - Fully editable tables with add/delete rows, drag-drop images
-- 💰 **Smart Costing Engine** - Apply margins, freight, customs, and exchange rates
-- 🎨 **Professional PDF Generation** - Branded commercial offers with company logo and styling
-- 🔄 **Multi-Budget Alternatives** - Generate budgetary, mid-range, and high-end options
-- 🌐 **Brand Scraping** - Intelligent web scraping for furniture brand catalogs
-- 📈 **Value Engineering** - Automated alternative product suggestions
-- 🎯 **Real-time Progress** - Detailed extraction progress with 7-step tracking
+**Professional Output Generation**
+- 📋 Technical presentations (PPTX/PDF) with product specifications and images
+- 💼 Commercial offers with branded styling and detailed breakdowns
+- 📊 Material Approval Submittals (MAS) with complete product documentation
+
+**Production Ready**
+- ☁️ Deployed on Railway with automatic scaling
+- 🔒 Secure environment variable management
+- 📦 LibreOffice integration for cross-platform PDF generation
 
 ---
 
