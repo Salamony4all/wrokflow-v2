@@ -21,13 +21,22 @@ app = Flask(__name__)
 # In-memory storage for scraping events/status (for real-time preview)
 scraping_status = {}
 scraping_status_lock = threading.Lock()
-app.config['SECRET_KEY'] = 'your-secret-key-here'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here')
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['OUTPUT_FOLDER'] = 'outputs'
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max file size
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_PERMANENT'] = True
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=4)  # Session lasts 4 hours
+
+# Configurable brands data directory - can point to Railway volume for persistence
+# Set BRANDS_DATA_PATH environment variable to use a mounted volume
+BRANDS_DATA_DIR = os.environ.get('BRANDS_DATA_PATH', BRANDS_DATA_DIR)
+logger.info(f"Brands data directory: {BRANDS_DATA_DIR}")
+
+# Ensure brands data directory exists
+os.makedirs(BRANDS_DATA_DIR, exist_ok=True)
+
 Session(app)
 
 # Basic logging - configure to log to both file and console
@@ -43,8 +52,8 @@ logger = logging.getLogger(__name__)
 
 # PP-StructureV3 API Configuration
 # Using API URL from official documentation (PP-StructureV3_API_en documentation.txt)
-API_URL = "https://wfk3ide9lcd0x0k9.aistudio-hub.baidu.com/layout-parsing"
-TOKEN = "031c87b3c44d16aa4adf6928bcfa132e23393afc"
+API_URL = os.environ.get('PP_STRUCTURE_API_URL', 'https://wfk3ide9lcd0x0k9.aistudio-hub.baidu.com/layout-parsing')
+TOKEN = os.environ.get('PP_STRUCTURE_TOKEN', '031c87b3c44d16aa4adf6928bcfa132e23393afc')
 
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'xls', 'xlsx'}
 
@@ -2640,7 +2649,7 @@ def get_brands_list():
         tier = tier_map.get(tier.lower(), tier.lower())
         
         brands = []
-        brands_data_dir = 'brands_data'
+        brands_data_dir = BRANDS_DATA_DIR
         
         if not os.path.exists(brands_data_dir):
             return jsonify({
@@ -2728,11 +2737,11 @@ def get_brand_models_api():
         import re
         safe_brand_name = re.sub(r'[^\w\-_]', '', brand.replace(' ', '_'))
         filename = f"{safe_brand_name}_{tier}.json"
-        filepath = os.path.join('brands_data', filename)
+        filepath = os.path.join(BRANDS_DATA_DIR, filename)
         
         if not os.path.exists(filepath):
             # Try case-insensitive search
-            brands_data_dir = 'brands_data'
+            brands_data_dir = BRANDS_DATA_DIR
             if os.path.exists(brands_data_dir):
                 for f in os.listdir(brands_data_dir):
                     if f.lower() == filename.lower():
@@ -2920,7 +2929,7 @@ def get_brands_categories():
     
     if not brand:
         # Return all categories across all brands in this tier
-        brands_data_dir = 'brands_data'
+        brands_data_dir = BRANDS_DATA_DIR
         all_categories = set()
         
         if os.path.exists(brands_data_dir):
@@ -2974,11 +2983,11 @@ def get_brands_categories():
         
         safe_brand_name = re.sub(r'[^\w\-_]', '', brand.replace(' ', '_'))
         filename = f"{safe_brand_name}_{tier}.json"
-        filepath = os.path.join('brands_data', filename)
+        filepath = os.path.join(BRANDS_DATA_DIR, filename)
         
         if not os.path.exists(filepath):
             # Try case-insensitive
-            brands_data_dir = 'brands_data'
+            brands_data_dir = BRANDS_DATA_DIR
             if os.path.exists(brands_data_dir):
                 for f in os.listdir(brands_data_dir):
                     if f.lower() == filename.lower():
@@ -3060,11 +3069,11 @@ def get_subcategories_api():
         
         safe_brand_name = re.sub(r'[^\w\-_]', '', brand.replace(' ', '_'))
         filename = f"{safe_brand_name}_{tier}.json"
-        filepath = os.path.join('brands_data', filename)
+        filepath = os.path.join(BRANDS_DATA_DIR, filename)
         
         if not os.path.exists(filepath):
             # Try case-insensitive
-            brands_data_dir = 'brands_data'
+            brands_data_dir = BRANDS_DATA_DIR
             if os.path.exists(brands_data_dir):
                 for f in os.listdir(brands_data_dir):
                     if f.lower() == filename.lower():
@@ -3407,7 +3416,7 @@ def scrape_and_add_brand():
             return jsonify({'error': scraped_data['error']}), 400
         
         # Load existing brands from brands_dynamic.json
-        brands_file = os.path.join('brands_data', 'brands_dynamic.json')
+        brands_file = os.path.join(BRANDS_DATA_DIR, 'brands_dynamic.json')
         if os.path.exists(brands_file):
             with open(brands_file, 'r', encoding='utf-8') as f:
                 brands_data = json.load(f)
@@ -3474,7 +3483,7 @@ def scrape_and_add_brand():
             logger.info(f"Added new brand: {brand_name}")
         
         # Save to brands_dynamic.json
-        os.makedirs('brands_data', exist_ok=True)
+        os.makedirs(BRANDS_DATA_DIR, exist_ok=True)
         with open(brands_file, 'w', encoding='utf-8') as f:
             json.dump(brands_data, f, indent=2, ensure_ascii=False)
         
@@ -3825,7 +3834,7 @@ def _scrape_single_brand(brand_info):
                 organized_data['categories'][category][subcategory].append(model_entry)
         
         # Save to brands_data folder as separate JSON file
-        filepath = save_brand_data_to_file(organized_data, tier, output_dir='brands_data')
+        filepath = save_brand_data_to_file(organized_data, tier, output_dir=BRANDS_DATA_DIR)
         
         # Count total products
         if is_collections_format:
@@ -4063,11 +4072,11 @@ def download_brand_excel():
         # Load brand data
         safe_brand_name = re.sub(r'[^\w\-_]', '', brand.replace(' ', '_'))
         filename = f"{safe_brand_name}_{tier}.json"
-        filepath = os.path.join('brands_data', filename)
+        filepath = os.path.join(BRANDS_DATA_DIR, filename)
         
         if not os.path.exists(filepath):
             # Try case-insensitive search
-            brands_data_dir = 'brands_data'
+            brands_data_dir = BRANDS_DATA_DIR
             if os.path.exists(brands_data_dir):
                 for f in os.listdir(brands_data_dir):
                     if f.lower() == filename.lower():
@@ -4730,11 +4739,11 @@ def upload_brand_excel():
         # Load existing brand data
         safe_brand_name = re.sub(r'[^\w\-_]', '', brand.replace(' ', '_'))
         filename = f"{safe_brand_name}_{tier}.json"
-        filepath = os.path.join('brands_data', filename)
+        filepath = os.path.join(BRANDS_DATA_DIR, filename)
         
         if not os.path.exists(filepath):
             # Try case-insensitive search
-            brands_data_dir = 'brands_data'
+            brands_data_dir = BRANDS_DATA_DIR
             if os.path.exists(brands_data_dir):
                 for f in os.listdir(brands_data_dir):
                     if f.lower() == filename.lower():
@@ -4927,7 +4936,7 @@ def upload_brand_excel():
             organized_data['categories'][category][subcategory].append(model_entry)
         
         # Save to brands_data folder
-        filepath = save_brand_data_to_file(organized_data, tier, output_dir='brands_data')
+        filepath = save_brand_data_to_file(organized_data, tier, output_dir=BRANDS_DATA_DIR)
         
         # Count total products
         total_products = 0
@@ -4974,7 +4983,7 @@ def save_brand_database(database):
     except Exception as e:
         logger.error(f"Error saving brand database: {e}")
 
-def save_brand_data_to_file(brand_data: dict, tier: str, output_dir: str = 'brands_data') -> str:
+def save_brand_data_to_file(brand_data: dict, tier: str, output_dir: str = BRANDS_DATA_DIR) -> str:
     """
     Save brand data to separate JSON file in brands_data folder
     Utility function to replace BrandScraper.save_brand_data()
@@ -5027,7 +5036,7 @@ def save_individual_brand_file(brand_name: str, website: str, country: str, tier
         import re
         safe_brand_name = re.sub(r'[^\w\-_]', '', brand_name.replace(' ', '_'))
         filename = f"{safe_brand_name}_{tier}.json"
-        filepath = os.path.join('brands_data', filename)
+        filepath = os.path.join(BRANDS_DATA_DIR, filename)
         
         # Build individual brand file structure
         brand_file_data = {
@@ -5050,7 +5059,7 @@ def save_individual_brand_file(brand_name: str, website: str, country: str, tier
             brand_file_data['includes_descriptions'] = scraped_data['includes_descriptions']
         
         # Save to individual file
-        os.makedirs('brands_data', exist_ok=True)
+        os.makedirs(BRANDS_DATA_DIR, exist_ok=True)
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(brand_file_data, f, indent=2, ensure_ascii=False)
         
@@ -5077,7 +5086,7 @@ def update_brands_dynamic_json(brand_name: str, website: str, country: str, tier
         scraped_at: Timestamp when scraping was completed (optional)
     """
     try:
-        brands_dynamic_path = os.path.join('brands_data', 'brands_dynamic.json')
+        brands_dynamic_path = os.path.join(BRANDS_DATA_DIR, 'brands_dynamic.json')
         
         # Load existing brands_dynamic.json or create new structure
         if os.path.exists(brands_dynamic_path):
