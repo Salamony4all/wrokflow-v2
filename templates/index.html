@@ -2628,6 +2628,12 @@
             transform: scale(1.05);
             box-shadow: 0 20px 60px rgba(46, 89, 132, 0.35);
         }
+        
+        .upload-area.uploading {
+            pointer-events: none;
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
 
         .upload-icon {
             font-size: 5em;
@@ -2991,17 +2997,25 @@
         }
 
         .action-btn {
-            padding: 12px 22px;
+            padding: 14px 28px;
             border: none;
             border-radius: 12px;
             font-weight: 700;
-            font-size: 0.9em;
+            font-size: 0.95em;
             cursor: pointer;
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             color: #0f1419;
+            background: #d4af37;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
             position: relative;
             overflow: hidden;
+            min-width: 200px;
+            text-align: center;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            height: 48px;
         }
 
         .action-btn::before {
@@ -3059,12 +3073,54 @@
         .btn {
             padding: 12px 24px;
             border: none;
-            border-radius: 10px;
-            font-weight: 600;
-            font-size: 1em;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 0.9em;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             color: #0f1419;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+            min-width: 180px;
+            text-align: center;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: #d4af37;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s ease, height 0.6s ease;
+        }
+
+        .btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .btn:hover {
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn:active {
+            transform: translateY(-1px) scale(1.02);
+        }
+
+        .btn>* {
+            position: relative;
+            z-index: 1;
         }
 
         .costing-card {
@@ -3134,6 +3190,27 @@
             gap: 15px;
             margin-top: 30px;
             flex-wrap: wrap;
+        }
+
+        .costing-actions .btn-primary {
+            background: #1a365d;
+            color: #ffffff;
+            border: 2px solid #1a365d;
+            box-shadow: 0 4px 12px rgba(26, 54, 93, 0.3);
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        .costing-actions .btn-primary:hover {
+            background: #2d5a8e;
+            border-color: #2d5a8e;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(26, 54, 93, 0.4);
+        }
+
+        .costing-actions .btn-primary:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 8px rgba(26, 54, 93, 0.3);
         }
 
         .modal {
@@ -4035,8 +4112,139 @@
         body.transitioning {
             overflow: hidden;
         }
+
+        /* Image modal styles */
+        .image-modal {
+            display: none;
+            position: fixed;
+            z-index: 9999;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s;
+        }
+
+        .image-modal-content {
+            position: relative;
+            max-width: 90%;
+            max-height: 90%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .image-modal-img {
+            max-width: 100%;
+            max-height: 85vh;
+            object-fit: contain;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .image-modal-close {
+            position: absolute;
+            top: -40px;
+            right: 0;
+            color: #fff;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .image-modal-close:hover,
+        .image-modal-close:focus {
+            color: #bbb;
+        }
+
+        .image-modal-caption {
+            margin-top: 15px;
+            text-align: center;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* Thumbnail hover effect */
+        .table-thumbnail:hover {
+            opacity: 0.8;
+            transform: scale(1.05);
+            transition: all 0.2s ease;
+        }
     </style>
-    <script src="/static/js/table_manager.js"></script>
+    
+    <!-- Progress Popup Functions - Must be defined before table_manager.js loads -->
+    <script>
+        /**
+         * Show progress popup with percentage
+         */
+        function showProgressPopup(message) {
+            // Remove existing popup if any
+            const existing = document.getElementById('progress-popup');
+            if (existing) existing.remove();
+            
+            const popup = document.createElement('div');
+            popup.id = 'progress-popup';
+            popup.innerHTML = `
+                <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                            background: white; padding: 30px 40px; border-radius: 16px; 
+                            box-shadow: 0 10px 40px rgba(0,0,0,0.3); z-index: 10000; min-width: 350px;">
+                    <div style="text-align: center;">
+                        <div style="margin-bottom: 15px;">
+                            <div class="spinner" style="width: 50px; height: 50px; margin: 0 auto; border: 4px solid #f3f3f3; 
+                                                        border-top: 4px solid #d4af37; border-radius: 50%; 
+                                                        animation: spin 1s linear infinite;"></div>
+                        </div>
+                        <div style="font-size: 18px; font-weight: 700; color: #1a365d; margin-bottom: 20px;" id="progress-message">${message}</div>
+                        <div style="width: 100%; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; margin-bottom: 15px;">
+                            <div id="progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #d4af37, #f0c75e); 
+                                                          transition: width 0.3s ease; border-radius: 4px;"></div>
+                        </div>
+                        <div style="font-size: 24px; font-weight: 700; color: #d4af37;" id="progress-percentage">0%</div>
+                    </div>
+                </div>
+                <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+                            background: rgba(0,0,0,0.5); z-index: 9999;"></div>
+                <style>
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                </style>
+            `;
+            document.body.appendChild(popup);
+            return popup;
+        }
+
+        /**
+         * Update progress popup
+         */
+        function updateProgressPopup(percentage, message) {
+            const progressBar = document.getElementById('progress-bar');
+            const progressPercentage = document.getElementById('progress-percentage');
+            const progressMessage = document.getElementById('progress-message');
+            
+            if (progressBar) progressBar.style.width = `${percentage}%`;
+            if (progressPercentage) progressPercentage.textContent = `${Math.round(percentage)}%`;
+            if (message && progressMessage) progressMessage.textContent = message;
+        }
+
+        /**
+         * Close progress popup
+         */
+        function closeProgressPopup() {
+            const popup = document.getElementById('progress-popup');
+            if (popup) popup.remove();
+        }
+    </script>
+    
+    <script src="/static/js/table_manager.js?v={{ now }}"></script>
     <script>
         // Check for workflow from landing page or showHero flag
         window.addEventListener('DOMContentLoaded', function () {
@@ -4548,7 +4756,7 @@
                     <!-- Card 1: Quote with Price List -->
                     <div class="feature-card" data-card="quote-pricelist" onclick="showMainApp('quote-pricelist')">
                         <span class="card-badge">Popular</span>
-                        <span class="card-icon">💰</span>
+                        <span class="card-icon"></span>
                         <h2 class="card-title">Quote with Price List</h2>
                         <p class="card-description">
                             Upload your BOQ with price list to generate professional quotations instantly with accurate
@@ -4569,7 +4777,7 @@
                     <!-- Card 2: Multi-Budget Offers -->
                     <div class="feature-card" data-card="multi-budget" onclick="showMainApp('multi-budget')">
                         <span class="card-badge">AI-Powered</span>
-                        <span class="card-icon">🎯</span>
+                        <span class="card-icon"></span>
                         <h2 class="card-title">Multi-Budget Offers</h2>
                         <p class="card-description">
                             Upload BOQ only (no prices) and let AI generate three budget tiers: Budgetary, Mid-Range,
@@ -4590,7 +4798,7 @@
                     <!-- Card 3: Presentation Generator -->
                     <div class="feature-card" data-card="presentation" onclick="showMainApp('presentation')">
                         <span class="card-badge">Visual</span>
-                        <span class="card-icon">🎨</span>
+                        <span class="card-icon"></span>
                         <h2 class="card-title">Presentation Generator</h2>
                         <p class="card-description">
                             Create stunning visual presentations from your BOQ with images and pricing in professional
@@ -4610,7 +4818,7 @@
                     <!-- Card 4: MAS Generator -->
                     <div class="feature-card" data-card="mas" onclick="showMainApp('mas')">
                         <span class="card-badge">Essential</span>
-                        <span class="card-icon">📋</span>
+                        <span class="card-icon"></span>
                         <h2 class="card-title">MAS Generator</h2>
                         <p class="card-description">
                             Generate Material Approval Sheets automatically from your BOQ for streamlined approval
@@ -4812,16 +5020,26 @@
         <div class="main-content">
             <!-- Upload Section -->
             <div class="card">
-                <h2>📤 Upload & Extract Files</h2>
+                <h2>Upload & Extract Files</h2>
 
                 <!-- Extraction Settings (Collapsible) -->
                 <div style="margin-bottom: 20px; background: #1e1e1e; padding: 15px; border-radius: 8px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; cursor: pointer;"
                         onclick="toggleUploadSettings()">
-                        <h3 style="margin: 0; color: #e0e0e0; font-size: 0.95em;">⚙️ Extraction Settings</h3>
+                        <h3 style="margin: 0; color: #e0e0e0; font-size: 0.95em;">Extraction Settings</h3>
                         <span id="uploadSettingsToggle" style="color: #888;">▼</span>
                     </div>
                     <div id="uploadSettingsPanel" style="display: none; margin-top: 15px;">
+                        <div style="margin-bottom: 15px; padding: 12px; background: #2a2a2a; border-radius: 8px; border-left: 4px solid #10b981;">
+                            <label for="upload-setting-extractionMethod" style="color: #e0e0e0; font-weight: 600; display: block; margin-bottom: 6px; font-size: 0.95em;">
+                                🔧 Extraction Method
+                            </label>
+                            <select id="upload-setting-extractionMethod" 
+                                    style="width: 100%; padding: 8px; background: #1e1e1e; color: #e0e0e0; border: 1px solid #444; border-radius: 4px; font-size: 0.9em; cursor: pointer;">
+                                <option value="pdfplumber" selected>PDFPlumber (Local)</option>
+                                <option value="pp-structure">PP-StructureV3 API (Cloud)</option>
+                            </select>
+                        </div>
                         <div
                             style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
                             <div style="display: flex; align-items: center; gap: 8px;">
@@ -4900,7 +5118,7 @@
 
                         <!-- Table Recognition Advanced Settings -->
                         <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #333;">
-                            <h4 style="color: #e0e0e0; margin-bottom: 10px; font-size: 0.9em;">📊 Table Recognition
+                            <h4 style="color: #e0e0e0; margin-bottom: 10px; font-size: 0.9em;">Table Recognition
                                 Advanced</h4>
                             <div
                                 style="background: #2a1f0e; border-left: 3px solid #ff9800; padding: 8px; margin-bottom: 10px; border-radius: 4px;">
@@ -5132,11 +5350,25 @@
                         Close</button>
                 </div>
                 <div style="background: #1e1e1e; padding: 20px; border-radius: 8px; margin-bottom: 15px;">
+                    <div style="margin-bottom: 20px; padding: 15px; background: #2a2a2a; border-radius: 8px; border-left: 4px solid #10b981;">
+                        <label for="setting-extractionMethod" style="color: #e0e0e0; font-weight: 600; display: block; margin-bottom: 8px; font-size: 1em;">
+                            🔧 Extraction Method
+                        </label>
+                        <select id="setting-extractionMethod" 
+                                style="width: 100%; padding: 10px; background: #1e1e1e; color: #e0e0e0; border: 1px solid #444; border-radius: 4px; font-size: 0.95em; cursor: pointer;">
+                            <option value="pdfplumber" selected>PDFPlumber (Local - Fast & Reliable)</option>
+                            <option value="pp-structure">PP-StructureV3 API (Cloud - Advanced OCR)</option>
+                        </select>
+                        <p style="color: #888; margin-top: 8px; font-size: 0.85em; line-height: 1.4;">
+                            <strong>PDFPlumber:</strong> Local extraction, works offline, faster for simple tables.<br>
+                            <strong>PP-StructureV3 API:</strong> Cloud-based AI extraction, better for complex layouts and OCR.
+                        </p>
+                    </div>
                     <p style="color: #888; margin-bottom: 20px; font-size: 0.9em;">
                         These settings match the configuration from the example JSON that produced clean extractions.
                         Modify only if needed for specific document types.
                     </p>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+                    <div id="ppStructureSettings" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <input type="checkbox" id="setting-useDocPreprocessor"
                                 style="width: 18px; height: 18px; cursor: pointer;">
@@ -5404,7 +5636,7 @@
 
             <!-- Costing Card Section -->
             <div class="card" id="costingCard" style="display:none;">
-                <h2>💰 Apply Costing Factors</h2>
+                <h2>Apply Costing Factors</h2>
                 <div class="costing-card">
                     <div class="factor-control">
                         <div class="factor-label">
@@ -5497,7 +5729,7 @@
                 <p style="color: #64748b; margin-bottom: 20px;">Generate Material Approval Submission documents in A4
                     portrait format with 1 page per item, including product images and technical specifications.
                     Includes costing information.</p>
-                <button class="btn btn-warning" onclick="generateMAS()">📋 Generate MAS PDF</button>
+                <button class="btn btn-warning" onclick="generateMASFromCosting()">📋 Generate MAS PDF</button>
             </div>
 
             <!-- Presentation Generator Card -->
@@ -6161,6 +6393,33 @@
     </div>
 
     <script>
+        // Image modal function for click-to-enlarge
+        function openImageModal(imagePath, imageId) {
+            // Create modal if it doesn't exist
+            let modal = document.getElementById('imageModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'imageModal';
+                modal.style.cssText = 'display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9); cursor: pointer;';
+                modal.innerHTML = `
+                    <span style="position: absolute; top: 20px; right: 40px; color: #f1f1f1; font-size: 40px; font-weight: bold; cursor: pointer;" onclick="closeImageModal()">&times;</span>
+                    <img id="modalImage" style="margin: auto; display: block; max-width: 90%; max-height: 90%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+                    <div style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); color: #f1f1f1; font-size: 16px; text-align: center; background: rgba(0,0,0,0.5); padding: 10px 20px; border-radius: 8px;">Click anywhere to close</div>
+                `;
+                document.body.appendChild(modal);
+                modal.onclick = function() { closeImageModal(); };
+            }
+            
+            // Show modal with image
+            document.getElementById('modalImage').src = imagePath;
+            modal.style.display = 'block';
+        }
+        
+        function closeImageModal() {
+            const modal = document.getElementById('imageModal');
+            if (modal) modal.style.display = 'none';
+        }
+
         // Session and state management
         let uploadedFiles = [];
         let currentWorkflow = null;
@@ -6416,47 +6675,115 @@
                 const files = this.files;
 
                 if (files.length > 0) {
-                    // Check if fileInfo element exists before accessing it
-                    if (!fileInfo) {
-                        console.warn('File info element not found for input:', this.id);
-                        // Still process the upload even if UI element is missing
-                    } else {
-                        fileInfo.classList.add('show');
-                        fileInfo.querySelector('.file-name').innerHTML =
-                            `<div class="loading"></div> Uploading ${files.length} file(s)...`;
+                    // Prevent duplicate uploads - check if already uploading
+                    if (this.dataset.uploading === 'true') {
+                        console.warn('Upload already in progress, skipping duplicate');
+                        return;
                     }
+                    
+                    // Mark as uploading
+                    this.dataset.uploading = 'true';
+                    
+                    // Show upload progress popup (similar to file generation popup)
+                    const uploadPopup = showProgressPopup('Preparing upload...');
+                    updateProgressPopup(0, 'Starting upload...');
 
-                    // Upload files to backend (using simplified function for workflow cards)
+                    // Upload files to backend
                     uploadedFiles = [];
-                    for (let file of files) {
+                    
+                    for (let i = 0; i < files.length; i++) {
+                        const file = files[i];
                         try {
+                            // Update progress - uploading phase (30%)
+                            const uploadProgress = Math.round(((i + 0.3) / files.length) * 100);
+                            updateProgressPopup(uploadProgress, `📤 Uploading: ${file.name} (${Math.round(file.size / 1024)} KB)`);
+                            
                             const result = await uploadFileSimple(file);
                             console.log('Upload result:', result);
+                            
+                            // Update progress - extraction phase (70%)
+                            const extractProgress = Math.round(((i + 0.7) / files.length) * 100);
+                            updateProgressPopup(extractProgress, `🔍 Extracting tables from: ${file.name}`);
+                            
+                            // Small delay to show extraction message
+                            await new Promise(resolve => setTimeout(resolve, 300));
+                            
                             if (result && result.success) {
-                                // Backend returns: {success: true, file_id: ..., filename: ..., message: ...}
-                                // Store file info with structure matching backend response
                                 uploadedFiles.push({
                                     id: result.file_id,
                                     original_name: result.filename || file.name,
-                                    filename: result.filename || file.name
+                                    filename: result.filename || file.name,
+                                    extraction_success: result.extraction_success,
+                                    extraction_error: result.extraction_error
                                 });
+                                
+                                // Update progress to completed for this file (100%)
+                                const finalProgress = Math.round(((i + 1) / files.length) * 100);
+                                updateProgressPopup(finalProgress, `✅ Success: Extracted ${file.name} (${result.tables_found || 0} tables found)`);
                             } else {
                                 console.error('Upload failed:', result?.error || 'Unknown error');
+                                updateProgressPopup(uploadProgress, `❌ Failed: Could not upload ${file.name}`);
                             }
                         } catch (error) {
                             console.error('Error uploading file:', error);
+                            updateProgressPopup(0, `❌ Error: ${error.message || 'Upload failed'}`);
                         }
                     }
 
                     console.log('Uploaded files array:', uploadedFiles);
 
+                    console.log('🔥🔥🔥 NEW CODE LOADED - CHECKING LENGTH 🔥🔥🔥');
+                    
+                    // Mark as no longer uploading
+                    this.dataset.uploading = 'false';
+
+                    console.log('About to check uploadedFiles.length:', uploadedFiles.length);
+                    console.log('Condition check:', uploadedFiles.length > 0);
+                    
                     if (uploadedFiles.length > 0) {
-                        if (fileInfo) {
-                            fileInfo.querySelector('.file-name').innerHTML =
-                                `✓ ${uploadedFiles.length} file(s) uploaded: ${uploadedFiles.map(f => f.original_name || f.filename).join(', ')}`;
+                        console.log('Processing uploaded files for auto-display...');
+                        
+                        // Update progress popup to 100%
+                        updateProgressPopup(100, `🎉 Complete! Processing ${uploadedFiles.length} file(s) - Displaying tables...`);
+                        
+                        // Keep the progress display visible for a moment
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        
+                        // Auto-display extracted tables for each uploaded file
+                        for (const uploadedFile of uploadedFiles) {
+                            console.log('Checking file for auto-display:', uploadedFile);
+                            console.log('  - id:', uploadedFile.id);
+                            console.log('  - extraction_success:', uploadedFile.extraction_success);
+                            
+                            if (uploadedFile.id && uploadedFile.extraction_success) {
+                                console.log('Auto-displaying tables for file:', uploadedFile.id);
+                                // Call the auto-stitch function
+                                if (typeof autoStitchAndDisplayTables === 'function') {
+                                    try {
+                                        await autoStitchAndDisplayTables(uploadedFile.id);
+                                        console.log('Auto-stitch completed for:', uploadedFile.id);
+                                    } catch (error) {
+                                        console.error('Error auto-stitching:', error);
+                                    }
+                                } else {
+                                    console.error('autoStitchAndDisplayTables function not found!');
+                                }
+                            } else {
+                                console.log('Skipping auto-display: extraction_success =', uploadedFile.extraction_success);
+                            }
                         }
+                        
+                        // Close the popup
+                        closeProgressPopup();
+                        
+                        // Show success notification
+                        showUploadNotification('Success!', `✓ ${uploadedFiles.length} file(s) extracted successfully!`, '✅');
+                        
                         // File list refresh removed as uploaded files card is no longer displayed
                     } else {
+                        // Close popup on error
+                        closeProgressPopup();
+                        
                         if (fileInfo) {
                             fileInfo.classList.remove('show');
                         }
@@ -6497,7 +6824,7 @@
             try {
                 // Use upload-and-extract endpoint with extended timeout for large files
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 360000); // 6 minutes timeout
+                const timeoutId = setTimeout(() => controller.abort(), 1200000); // 20 minutes timeout
 
                 const response = await fetch('/upload-and-extract', {
                     method: 'POST',
@@ -6586,7 +6913,7 @@
 
                     // Extended timeout for large file extraction
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 360000); // 6 minutes
+                    const timeoutId = setTimeout(() => controller.abort(), 1200000); // 20 minutes
 
                     const response = await fetch(`/extract/${file.id}`, {
                         method: 'POST',
@@ -6832,15 +7159,35 @@
         });
 
         fileInput.addEventListener('change', (e) => {
+            // Prevent duplicate uploads
+            if (fileInput.dataset.uploading === 'true') {
+                console.warn('Upload already in progress, ignoring duplicate trigger');
+                return;
+            }
             handleFiles(e.target.files);
         });
 
         async function handleFiles(files) {
-            console.log('Handling', files.length, 'files');
-            for (let file of files) {
-                await uploadFile(file);
+            // Prevent concurrent uploads
+            if (fileInput.dataset.uploading === 'true') {
+                console.warn('Upload already in progress, skipping');
+                return;
             }
-            console.log('Upload complete');
+            
+            const uploadArea = document.getElementById('uploadArea');
+            fileInput.dataset.uploading = 'true';
+            uploadArea.classList.add('uploading');
+            
+            console.log('Handling', files.length, 'files');
+            try {
+                for (let file of files) {
+                    await uploadFile(file);
+                }
+                console.log('Upload complete');
+            } finally {
+                fileInput.dataset.uploading = 'false';
+                uploadArea.classList.remove('uploading');
+            }
             // File list refresh removed as uploaded files card is no longer displayed
         }
 
@@ -6903,7 +7250,7 @@
             try {
                 // Extended timeout for large files
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 360000); // 6 minutes
+                const timeoutId = setTimeout(() => controller.abort(), 1200000); // 20 minutes
 
                 const response = await fetch('/upload-and-extract', {
                     method: 'POST',
@@ -6920,12 +7267,15 @@
                     uploadProgressFill.classList.add('error');
                     progressBar.classList.remove('active');
                     showUploadNotification('Upload Failed', errorData.error || `HTTP ${response.status}`, '❌');
+                    console.error('Upload failed:', errorData);
                     return;
                 }
 
                 const result = await response.json();
+                console.log('Upload response received:', result);
 
                 if (result && result.success) {
+                    console.log('Upload successful, file_id:', result.file_id, 'extraction_success:', result.extraction_success);
                     // Upload complete - show extraction phase
                     updateProgress(
                         35,
@@ -6977,6 +7327,7 @@
                         // Automatically stitch and display tables
                         setTimeout(async () => {
                             try {
+                                console.log('Starting auto-stitch for file_id:', result.file_id);
                                 updateProgress(
                                     90,
                                     'Rendering tables',
@@ -6984,6 +7335,7 @@
                                     `<strong>Step 7:</strong> Rendering interactive table with add/delete row buttons and drag-drop image support...`
                                 );
                                 await autoStitchAndDisplayTables(result.file_id);
+                                console.log('Auto-stitch completed successfully');
 
                                 uploadProgressFill.classList.remove('warning', 'error');
                                 uploadProgressFill.classList.add('success');
@@ -7046,9 +7398,14 @@
                             100,
                             '',
                             '',
-                            `<strong>❌ Error:</strong> File uploaded but extraction failed: ${errorDetail}. Please check the file format and try again.`
+                            `<strong>❌ Error:</strong> File uploaded but extraction failed: ${errorDetail}. Page will refresh in 3 seconds to allow new upload...`
                         );
-                        showUploadNotification('Extraction Failed', `${file.name} uploaded but extraction failed: ${errorDetail}`, '⚠️');
+                        showUploadNotification('Extraction Failed', `${file.name} uploaded but extraction failed: ${errorDetail}. Refreshing...`, '⚠️');
+                        
+                        // Auto-refresh page after 3 seconds to allow new upload
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 3000);
                     }
 
                     // File list refresh removed as uploaded files card is no longer displayed
@@ -7076,10 +7433,15 @@
                     0,
                     '',
                     '',
-                    `<strong>❌ Upload Error:</strong> ${error.message}. Please check your connection and try again.`
+                    `<strong>❌ Upload Error:</strong> ${error.message}. Page will refresh in 3 seconds...`
                 );
                 showUploadNotification('Upload Error', error.message, '❌');
                 console.error('Upload error:', error);
+                
+                // Auto-refresh page after 3 seconds
+                setTimeout(() => {
+                    window.location.reload();
+                }, 3000);
             }
 
             setTimeout(() => {
@@ -7161,6 +7523,7 @@
         // Get current extraction settings from UI
         function getExtractionSettings() {
             return {
+                extractionMethod: document.getElementById('setting-extractionMethod')?.value || 'pdfplumber',
                 useDocPreprocessor: document.getElementById('setting-useDocPreprocessor')?.checked || false,
                 useSealRecognition: document.getElementById('setting-useSealRecognition')?.checked !== false,
                 useTableRecognition: document.getElementById('setting-useTableRecognition')?.checked !== false,
@@ -7260,6 +7623,7 @@
         // Get extraction settings from upload area
         function getUploadExtractionSettings() {
             return {
+                extractionMethod: document.getElementById('upload-setting-extractionMethod')?.value || 'pdfplumber',
                 useDocPreprocessor: document.getElementById('upload-setting-useDocPreprocessor')?.checked || false,
                 useSealRecognition: document.getElementById('upload-setting-useSealRecognition')?.checked !== false,
                 useTableRecognition: document.getElementById('upload-setting-useTableRecognition')?.checked !== false,
@@ -7432,6 +7796,31 @@
                 try {
                     const response = await fetch(`/stitch-tables/${fileId}`, { method: 'POST' });
                     const result = await response.json();
+
+                    if (!response.ok || result.error) {
+                        // Handle error - try to get available files and use the most recent one
+                        console.error('Stitching error:', result);
+                        if (result.available_files && result.available_files.length > 0) {
+                            // Use the most recent file that has extraction
+                            const extractedFile = result.available_files.find(f => f.has_extraction) || result.available_files[0];
+                            if (extractedFile && extractedFile.id !== fileId) {
+                                console.log(`Retrying with file ID: ${extractedFile.id}`);
+                                // Retry with the available file ID
+                                const retryResponse = await fetch(`/stitch-tables/${extractedFile.id}`, { method: 'POST' });
+                                const retryResult = await retryResponse.json();
+                                if (retryResult.success) {
+                                    // Use retry result
+                                    result = retryResult;
+                                } else {
+                                    throw new Error(retryResult.message || 'Stitching failed');
+                                }
+                            } else {
+                                throw new Error(result.message || 'File not found in session');
+                            }
+                        } else {
+                            throw new Error(result.message || 'No files available for stitching');
+                        }
+                    }
 
                     if (result.success) {
                         // Display stitched table with full functionality (same as table_manager.js)
@@ -7739,10 +8128,15 @@
 
                         stitchedHtml += tempDiv.innerHTML + `
                                 </div>
-                                <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
-                                    <button class="action-btn btn-info" onclick="downloadEditedTable('${fileId}')">📥 Download Edited Table</button>
-                                    <button class="action-btn btn-warning" onclick="addTableRow('${fileId}')">➕ Add Row at Bottom</button>
-                                    <button class="action-btn btn-danger" onclick="resetTable('${fileId}')">🔄 Reset to Original</button>
+                                <div style="margin-top: 20px; display: flex; justify-content: center;">
+                                    <button class="action-btn" onclick="openCosting('${fileId}')">💰 Apply Costing</button>
+                                </div>
+                                <div style="margin-top: 15px; display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;">
+                                    <button class="action-btn" onclick="generateOfferPDF('${fileId}')">📄 Download Offer PDF</button>
+                                    <button class="action-btn" onclick="generateOfferExcel('${fileId}')">📊 Download Offer Excel</button>
+                                    <button class="action-btn" onclick="generatePresentationPPTX('${fileId}')">📽️ Generate Presentation</button>
+                                    <button class="action-btn" onclick="generatePresentationPDF('${fileId}')">📑 Generate Presentation PDF</button>
+                                    <button class="action-btn" onclick="generateMAS('${fileId}')">📋 Generate MAS</button>
                                 </div>
                             </div>
                         `;
@@ -7836,6 +8230,65 @@
             }
         }
 
+        // Toggle PP-Structure settings visibility based on extraction method
+        function updateExtractionMethodSettings() {
+            const method = document.getElementById('setting-extractionMethod')?.value || 'pdfplumber';
+            const ppSettings = document.getElementById('ppStructureSettings');
+            if (ppSettings) {
+                ppSettings.style.display = (method === 'pp-structure' || method === 'pp-structurev3' || method === 'api') ? 'grid' : 'none';
+            }
+        }
+
+        // Toggle PP-Structure settings visibility for upload area
+        function updateUploadExtractionMethodSettings() {
+            const method = document.getElementById('upload-setting-extractionMethod')?.value || 'pdfplumber';
+            const uploadSettingsPanel = document.getElementById('uploadSettingsPanel');
+            if (uploadSettingsPanel) {
+                // Show/hide PP-Structure specific settings
+                const ppSettings = uploadSettingsPanel.querySelectorAll('[id^="upload-setting-"]:not([id="upload-setting-extractionMethod"])');
+                ppSettings.forEach(setting => {
+                    if (setting.id.includes('useDocPreprocessor') || setting.id.includes('useSealRecognition') || 
+                        setting.id.includes('useTableRecognition') || setting.id.includes('useFormulaRecognition') ||
+                        setting.id.includes('useChartRecognition') || setting.id.includes('useRegionDetection') ||
+                        setting.id.includes('formatBlockContent') || setting.id.includes('useTextlineOrientation') ||
+                        setting.id.includes('useDocOrientationClassify') || setting.id.includes('useDocUnwarping') ||
+                        setting.id.includes('visualize') || setting.id.includes('useWiredTableCellsTransToHtml') ||
+                        setting.id.includes('useWirelessTableCellsTransToHtml') || setting.id.includes('useTableOrientationClassify') ||
+                        setting.id.includes('useOcrResultsWithTableCells') || setting.id.includes('useE2eWiredTableRecModel') ||
+                        setting.id.includes('useE2eWirelessTableRecModel') || setting.id.includes('layoutThreshold') ||
+                        setting.id.includes('layoutNms') || setting.id.includes('layoutUnclipRatio') ||
+                        setting.id.includes('layoutMergeBboxesMode') || setting.id.includes('textDetLimitSideLen') ||
+                        setting.id.includes('textDetLimitType') || setting.id.includes('textDetThresh') ||
+                        setting.id.includes('textDetBoxThresh') || setting.id.includes('textDetUnclipRatio') ||
+                        setting.id.includes('textRecScoreThresh') || setting.id.includes('sealDetLimitSideLen') ||
+                        setting.id.includes('sealDetLimitType') || setting.id.includes('sealDetThresh') ||
+                        setting.id.includes('sealDetBoxThresh') || setting.id.includes('sealDetUnclipRatio') ||
+                        setting.id.includes('sealRecScoreThresh')) {
+                        const parent = setting.closest('div');
+                        if (parent) {
+                            parent.style.display = (method === 'pp-structure' || method === 'pp-structurev3' || method === 'api') ? 'flex' : 'none';
+                        }
+                    }
+                });
+            }
+        }
+
+        // Add event listeners when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            const extractionMethodSelect = document.getElementById('setting-extractionMethod');
+            const uploadExtractionMethodSelect = document.getElementById('upload-setting-extractionMethod');
+            
+            if (extractionMethodSelect) {
+                extractionMethodSelect.addEventListener('change', updateExtractionMethodSettings);
+                updateExtractionMethodSettings(); // Initial call
+            }
+            
+            if (uploadExtractionMethodSelect) {
+                uploadExtractionMethodSelect.addEventListener('change', updateUploadExtractionMethodSettings);
+                updateUploadExtractionMethodSettings(); // Initial call
+            }
+        });
+
         // Reset extraction settings to defaults from example JSON
         function resetExtractionSettings() {
             // Basic settings
@@ -7915,20 +8368,59 @@
             try {
                 // Get extraction settings from UI
                 const settings = getExtractionSettings();
+                console.log('Extraction settings being sent:', settings);
+                console.log('Extraction method:', settings.extractionMethod);
 
-                const response = await fetch(`/extract/${fileId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(settings)
-                });
+                // Determine timeout based on extraction method
+                const isApiMethod = settings.extractionMethod === 'pp-structure' || 
+                                   settings.extractionMethod === 'pp-structurev3' || 
+                                   settings.extractionMethod === 'api';
+                const timeout = isApiMethod ? 600000 : 300000; // 10 minutes for API, 5 minutes for pdfplumber
+                
+                // Show progress message
+                if (isApiMethod) {
+                    extractionSection.innerHTML = '<div class="loading"></div> Processing with PP-StructureV3 API (this may take several minutes for large files)...';
+                } else {
+                    extractionSection.innerHTML = '<div class="loading"></div> Extracting with PDFPlumber...';
+                }
+
+                // Create AbortController for timeout handling
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => {
+                    controller.abort();
+                }, timeout);
+
+                let response;
+                try {
+                    response = await fetch(`/extract/${fileId}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(settings),
+                        signal: controller.signal
+                    });
+                    clearTimeout(timeoutId);
+                } catch (fetchError) {
+                    clearTimeout(timeoutId);
+                    if (fetchError.name === 'AbortError') {
+                        throw new Error(`Request timed out after ${timeout / 1000 / 60} minutes. The extraction may still be processing on the server. Please check the server logs.`);
+                    }
+                    throw fetchError;
+                }
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ error: 'Unknown error', message: `HTTP ${response.status}` }));
+                    throw new Error(errorData.message || errorData.error || `HTTP ${response.status}`);
+                }
 
                 const result = await response.json();
 
                 if (result.success) {
                     displayExtractionResult(fileId, result.result);
-                    showAlert('Extraction completed! ✓', 'success');
+                    const methodName = result.extraction_method === 'pp-structure' || result.extraction_method === 'pp-structurev3' || result.extraction_method === 'api' 
+                        ? 'PP-StructureV3 API' : 'PDFPlumber';
+                    showAlert(`Extraction completed using ${methodName}! ✓`, 'success');
 
                     // Show download button
                     const downloadBtn = document.getElementById(`download-${fileId}`);
@@ -7943,9 +8435,38 @@
                     }
 
                     // Automatically stitch tables after extraction
-                    setTimeout(() => {
-                        stitchTables(fileId);
-                    }, 500);
+                    // Wait a bit longer to ensure session is updated and use the fileId from the response
+                    setTimeout(async () => {
+                        try {
+                            // Verify file exists in session before stitching
+                            const filesResponse = await fetch('/api/files/list');
+                            const filesData = await filesResponse.json();
+                            const fileExists = filesData.files && filesData.files.some(f => f.id === fileId);
+                            
+                            if (!fileExists) {
+                                console.warn(`File ${fileId} not found in session, skipping auto-stitch`);
+                                return;
+                            }
+                            
+                            // Check if stitchTables function exists
+                            if (typeof stitchTables === 'function') {
+                                await stitchTables(fileId);
+                            } else {
+                                // Fallback: call stitch endpoint directly
+                                const stitchResponse = await fetch(`/stitch-tables/${fileId}`, { method: 'POST' });
+                                const stitchResult = await stitchResponse.json();
+                                if (stitchResult.success) {
+                                    showAlert('Tables stitched successfully!', 'success');
+                                } else {
+                                    console.warn('Stitching failed:', stitchResult.error);
+                                    // Don't show error to user as extraction was successful - user can manually stitch
+                                }
+                            }
+                        } catch (error) {
+                            console.error('Error stitching tables:', error);
+                            // Don't show error to user as extraction was successful - user can manually stitch
+                        }
+                    }, 1500);
                 } else {
                     // Display detailed error message if available
                     let errorMsg = result.error || 'Unknown error occurred';
@@ -7967,14 +8488,32 @@
                     }
                 }
             } catch (error) {
-                const errorMsg = error.message || 'An unexpected error occurred during extraction';
-                extractionSection.innerHTML = `<div class="alert-error">⚠️ Error: ${errorMsg}</div>`;
+                console.error('Extraction error:', error);
+                let errorMsg = error.message || 'An unexpected error occurred during extraction';
+                
+                // Handle timeout specifically
+                if (errorMsg.includes('timeout') || errorMsg.includes('timed out')) {
+                    errorMsg = `Request timed out. The extraction may still be processing on the server. Large files with PP-StructureV3 API can take 5-10 minutes. Please check the server logs or try again later.`;
+                    extractionSection.innerHTML = `<div class="alert-error" style="padding: 15px;">
+                        <strong>⚠️ Request Timeout</strong><br>
+                        ${errorMsg}<br>
+                        <small style="color: #888;">The backend may still be processing. Check server logs for progress.</small>
+                    </div>`;
+                } else {
+                    extractionSection.innerHTML = `<div class="alert-error">⚠️ Error: ${errorMsg}</div>`;
+                }
+                
                 showAlert(errorMsg, 'error');
                 // Reset status to uploaded
                 if (fileStatusElem) {
                     fileStatusElem.className = 'file-status status-uploaded';
                     fileStatusElem.textContent = 'Uploaded';
                 }
+                
+                // Auto-refresh page after 3 seconds to allow new upload
+                setTimeout(() => {
+                    window.location.reload();
+                }, 3000);
             }
         }
 
@@ -7998,8 +8537,75 @@
                         <h4 style="color: #d4af37; margin-top: 20px;">Raw Extraction Data (All Pages)</h4>
             `;
 
-            // Handle the prunedResult format from PP-StructureV3 - but hide it by default
-            result.layoutParsingResults.forEach((layoutResult, idx) => {
+            // Check if this is an Excel file result
+            if (result.file_type === 'excel') {
+                // Display Excel sheets
+                html += `<div style="margin-bottom: 20px;">
+                    <p style="color: #10b981; font-weight: 600;">✅ ${result.message}</p>
+                    <p style="color: #888; font-size: 14px;">Extraction Method: ${result.extraction_type}</p>
+                    <p style="color: #888; font-size: 14px;">Total Sheets: ${result.sheet_count}</p>
+                </div>`;
+
+                // Display each sheet
+                Object.keys(result.sheets).forEach((sheetName, idx) => {
+                    const sheet = result.sheets[sheetName];
+                    html += `<div style="margin-bottom: 30px;">
+                        <h4 style="color: #b8941f;">📊 Sheet: ${sheetName}</h4>`;
+                    
+                    if (sheet.error) {
+                        html += `<p style="color: #ef4444;">Error: ${sheet.error}</p>`;
+                    } else {
+                        html += `<p style="color: #888; font-size: 14px;">Rows: ${sheet.shape[0]} | Columns: ${sheet.shape[1]}</p>`;
+                        
+                        // Display the table
+                        if (sheet.html) {
+                            let tempDiv = document.createElement('div');
+                            tempDiv.innerHTML = sheet.html;
+                            
+                            // Style the table
+                            tempDiv.querySelectorAll('table').forEach(table => {
+                                table.style.width = '100%';
+                                table.style.borderCollapse = 'collapse';
+                                table.style.marginTop = '20px';
+                                table.style.marginBottom = '20px';
+                                table.setAttribute('border', '1');
+
+                                // Style cells
+                                table.querySelectorAll('td, th').forEach(cell => {
+                                    cell.style.border = '1px solid #ddd';
+                                    cell.style.padding = '12px';
+                                    cell.style.textAlign = 'left';
+                                    cell.style.verticalAlign = 'middle';
+                                    cell.style.color = '#333';
+                                    cell.style.backgroundColor = '#fff';
+                                });
+
+                                // Style header row
+                                table.querySelectorAll('th').forEach(th => {
+                                    th.style.backgroundColor = '#d4af37';
+                                    th.style.color = 'white';
+                                    th.style.fontWeight = '600';
+                                });
+
+                                // Alternate row colors
+                                let rows = table.querySelectorAll('tr');
+                                rows.forEach((row, i) => {
+                                    if (i > 0 && i % 2 === 0) {
+                                        row.querySelectorAll('td').forEach(td => {
+                                            td.style.backgroundColor = '#f8f9fa';
+                                        });
+                                    }
+                                });
+                            });
+                            
+                            html += `<div style="overflow-x: auto;">${tempDiv.innerHTML}</div>`;
+                        }
+                    }
+                    html += '</div>';
+                });
+            } else {
+                // Handle the prunedResult format from PP-StructureV3 - but hide it by default
+                result.layoutParsingResults.forEach((layoutResult, idx) => {
                 html += `<div style="margin-bottom: 30px;"><h4 style="color: #b8941f;">Page ${idx + 1}</h4>`;
 
                 // Check if prunedResult exists
@@ -8074,6 +8680,7 @@
                 }
                 html += '</div>'; // Close page div
             });
+            } // Close else block for non-Excel files
 
             html += '</div>'; // Close raw-data div
             html += '</div>'; // Close file extraction div
@@ -8242,7 +8849,14 @@
                 return;
             }
 
+            let popup = null;
             try {
+                // Show progress popup
+                const formatName = format === 'pdf' ? 'Offer PDF' : 'Offer Excel';
+                popup = showProgressPopup(`Preparing ${formatName}...`);
+                updateProgressPopup(20, `Preparing ${formatName}...`);
+
+                updateProgressPopup(50, `Generating ${formatName}...`);
                 const response = await fetch(`/generate-offer/${currentFileIdForCosting}`, {
                     method: 'POST'
                 });
@@ -8250,17 +8864,25 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    showAlert('Offer generated successfully! 📄', 'success');
+                    updateProgressPopup(90, 'Finalizing...');
                     // Download based on format
                     if (format === 'pdf') {
                         window.open(`/download/offer/${currentFileIdForCosting}?format=pdf`, '_blank');
                     } else if (format === 'excel') {
                         window.open(`/download/offer/${currentFileIdForCosting}?format=excel`, '_blank');
                     }
+                    
+                    updateProgressPopup(100, 'Completed!');
+                    setTimeout(() => {
+                        closeProgressPopup();
+                        showAlert(`✅ ${formatName} generated successfully!`, 'success');
+                    }, 800);
                 } else {
+                    closeProgressPopup();
                     showAlert('Error: ' + result.error, 'error');
                 }
             } catch (error) {
+                closeProgressPopup();
                 showAlert('Error: ' + error.message, 'error');
             }
         }
@@ -8275,9 +8897,13 @@
                 return;
             }
 
+            let popup = null;
             try {
-                showAlert('Generating presentation... Please wait', 'info');
+                const formatName = format === 'pdf' ? 'Presentation PDF' : 'Presentation PPTX';
+                popup = showProgressPopup(`Preparing ${formatName}...`);
+                updateProgressPopup(20, `Preparing ${formatName}...`);
 
+                updateProgressPopup(50, `Generating ${formatName}...`);
                 const response = await fetch(`/generate-presentation/${fileId}`, {
                     method: 'POST',
                     headers: {
@@ -8289,29 +8915,43 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    showAlert(`Presentation generated successfully! 🎨`, 'success');
+                    updateProgressPopup(90, 'Finalizing...');
                     // Download the file
                     window.open(`/download/presentation/${fileId}?format=${format}`, '_blank');
+                    
+                    updateProgressPopup(100, 'Completed!');
+                    setTimeout(() => {
+                        closeProgressPopup();
+                        showAlert(`✅ ${formatName} generated successfully!`, 'success');
+                    }, 800);
                 } else {
+                    closeProgressPopup();
                     showAlert('Error: ' + result.error, 'error');
                 }
             } catch (error) {
+                closeProgressPopup();
                 showAlert('Error: ' + error.message, 'error');
             }
         }
 
         // Generate MAS function
-        async function generateMAS() {
-            // Use currentFileId (from extraction) if costing hasn't been applied
-            const fileId = currentFileIdForCosting || currentFileId;
+        async function generateMAS(passedFileId) {
+            // Use passed fileId parameter, or fallback to currentFileIdForCosting
+            const fileId = passedFileId || currentFileIdForCosting;
+            
+            console.log('generateMAS called - passedFileId:', passedFileId, 'currentFileIdForCosting:', currentFileIdForCosting, 'using fileId:', fileId);
 
             if (!fileId) {
                 showAlert('Please extract tables first', 'error');
                 return;
             }
 
+            let popup = null;
             try {
-                showAlert('Generating Material Approval Sheet...', 'info');
+                popup = showProgressPopup('Preparing MAS PDF...');
+                updateProgressPopup(20, 'Preparing MAS PDF...');
+
+                updateProgressPopup(50, 'Generating Material Approval Sheet...');
 
                 const response = await fetch(`/generate-mas/${fileId}`, {
                     method: 'POST'
@@ -8320,13 +8960,21 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    showAlert(`Material Approval Sheet generated successfully! 📋`, 'success');
+                    updateProgressPopup(90, 'Finalizing...');
                     // Download the file
                     window.open(`/download/mas/${fileId}?format=pdf`, '_blank');
+                    
+                    updateProgressPopup(100, 'Completed!');
+                    setTimeout(() => {
+                        closeProgressPopup();
+                        showAlert('✅ Material Approval Sheet generated successfully!', 'success');
+                    }, 800);
                 } else {
+                    closeProgressPopup();
                     showAlert('Error: ' + result.error, 'error');
                 }
             } catch (error) {
+                closeProgressPopup();
                 showAlert('Error: ' + error.message, 'error');
             }
         }
@@ -13029,6 +13677,306 @@
                     document.body.removeChild(alertDiv);
                 }, 500);
             }, 3000);
+        }
+
+        // Image modal functionality for click-to-enlarge
+        function openImageModal(imageSrc) {
+            // Create modal if it doesn't exist
+            let modal = document.getElementById('imageModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'imageModal';
+                modal.className = 'image-modal';
+                modal.innerHTML = `
+                    <div class="image-modal-content">
+                        <span class="image-modal-close" onclick="closeImageModal()">&times;</span>
+                        <img id="modalImage" class="image-modal-img" src="" alt="Full size image">
+                        <div class="image-modal-caption">
+                            <button class="btn btn-sm btn-primary" onclick="downloadModalImage()">
+                                <i class="fas fa-download"></i> Download
+                            </button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+            
+            // Set image source and show modal
+            const modalImg = document.getElementById('modalImage');
+            modalImg.src = imageSrc;
+            modal.style.display = 'flex';
+            
+            // Close on click outside
+            modal.onclick = function(event) {
+                if (event.target === modal) {
+                    closeImageModal();
+                }
+            };
+        }
+        
+        function closeImageModal() {
+            const modal = document.getElementById('imageModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+        
+        function downloadModalImage() {
+            const modalImg = document.getElementById('modalImage');
+            if (modalImg && modalImg.src) {
+                const link = document.createElement('a');
+                link.href = modalImg.src;
+                link.download = modalImg.src.split('/').pop();
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        }
+        
+        // Close modal on Escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeImageModal();
+            }
+        });
+
+        // ============================================
+        // Zero-Costing Document Generation Functions
+        // ============================================
+
+        /**
+         * Apply zero costing and execute callback with progress tracking
+         */
+        async function applyZeroCostingAndExecute(fileId, actionName, callback) {
+            let popup = null;
+            try {
+                // Show progress popup
+                popup = showProgressPopup(`Preparing ${actionName}...`);
+                updateProgressPopup(10, `Preparing ${actionName}...`);
+                
+                // Get table data from DOM
+                const table = document.getElementById(`table-${fileId}`);
+                if (!table) {
+                    throw new Error('Table not found');
+                }
+                
+                updateProgressPopup(20, 'Extracting table data...');
+                const tableData = extractTableData(table);
+                
+                // Apply zero costing factors
+                updateProgressPopup(40, 'Applying costing factors...');
+                const response = await fetch(`/apply-zero-costing/${fileId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ table_data: tableData })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to apply zero costing');
+                }
+                
+                const result = await response.json();
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to apply zero costing');
+                }
+                
+                // Execute the callback function
+                updateProgressPopup(60, `Generating ${actionName}...`);
+                await callback(fileId);
+                
+                updateProgressPopup(100, `${actionName} completed!`);
+                setTimeout(() => {
+                    closeProgressPopup();
+                    showAlert(`✅ ${actionName} generated successfully!`, 'success');
+                }, 800);
+                
+            } catch (error) {
+                console.error(`Error in ${actionName}:`, error);
+                closeProgressPopup();
+                showAlert(`❌ Failed to generate ${actionName}: ${error.message}`, 'error');
+            }
+        }
+
+        /**
+         * Extract table data from DOM for costing
+         */
+        function extractTableData(table) {
+            const headers = [];
+            const rows = [];
+            
+            // Extract headers
+            const headerRow = table.rows[0];
+            for (let i = 0; i < headerRow.cells.length; i++) {
+                const cell = headerRow.cells[i];
+                if (!cell.classList.contains('action-column-header')) {
+                    headers.push(cell.textContent.trim());
+                }
+            }
+            
+            // Extract rows
+            for (let i = 1; i < table.rows.length; i++) {
+                const row = table.rows[i];
+                const rowData = {};
+                let colIndex = 0;
+                
+                for (let j = 0; j < row.cells.length; j++) {
+                    const cell = row.cells[j];
+                    if (!cell.classList.contains('action-column-cell')) {
+                        // Check if cell contains an image
+                        const img = cell.querySelector('img');
+                        if (img && img.src) {
+                            // Store cell HTML with image tag so presentation generator can extract it
+                            rowData[headers[colIndex]] = cell.innerHTML;
+                        } else {
+                            // Just store text for non-image cells
+                            rowData[headers[colIndex]] = cell.textContent.trim();
+                        }
+                        
+                        colIndex++;
+                    }
+                }
+                rows.push(rowData);
+            }
+            
+            return { headers, rows };
+        }
+
+        /**
+         * Generate and download Offer PDF
+         */
+        async function generateOfferPDF(fileId) {
+            await applyZeroCostingAndExecute(fileId, 'Offer PDF', async (fId) => {
+                const response = await fetch(`/generate-offer/${fId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to generate offer PDF');
+                }
+                
+                const result = await response.json();
+                if (result.success && result.file_path) {
+                    showAlert('✅ Offer PDF generated successfully!', 'success');
+                    // Trigger download instead of opening in browser
+                    const link = document.createElement('a');
+                    link.href = result.file_path;
+                    link.download = result.file_path.split('/').pop();
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                } else {
+                    throw new Error(result.error || 'Failed to generate offer PDF');
+                }
+            });
+        }
+
+        /**
+         * Generate and download Offer Excel
+         */
+        async function generateOfferExcel(fileId) {
+            await applyZeroCostingAndExecute(fileId, 'Offer Excel', async (fId) => {
+                // Download costed table as Excel
+                window.open(`/download/costed/${fId}`, '_blank');
+                showAlert('✅ Offer Excel downloaded successfully!', 'success');
+            });
+        }
+
+        /**
+         * Generate Presentation (PPTX)
+         */
+        async function generatePresentationPPTX(fileId) {
+            await applyZeroCostingAndExecute(fileId, 'Presentation', async (fId) => {
+                const response = await fetch(`/generate-presentation/${fId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ format: 'pptx' })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to generate presentation');
+                }
+                
+                const result = await response.json();
+                if (result.success && result.file_path) {
+                    showAlert('✅ Presentation generated successfully!', 'success');
+                    // Trigger download
+                    const link = document.createElement('a');
+                    link.href = result.file_path;
+                    link.download = result.file_path.split('/').pop();
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                } else {
+                    throw new Error(result.error || 'Failed to generate presentation');
+                }
+            });
+        }
+
+        /**
+         * Generate Presentation PDF
+         */
+        async function generatePresentationPDF(fileId) {
+            await applyZeroCostingAndExecute(fileId, 'Presentation PDF', async (fId) => {
+                const response = await fetch(`/generate-presentation/${fId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ format: 'pdf' })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to generate presentation PDF');
+                }
+                
+                const result = await response.json();
+                if (result.success && result.file_path) {
+                    showAlert('✅ Presentation PDF generated successfully!', 'success');
+                    // Trigger download
+                    const link = document.createElement('a');
+                    link.href = result.file_path;
+                    link.download = result.file_path.split('/').pop();
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                } else {
+                    throw new Error(result.error || 'Failed to generate presentation PDF');
+                }
+            });
+        }
+
+        /**
+         * Generate MAS document
+         */
+        async function generateMAS(fileId) {
+            await applyZeroCostingAndExecute(fileId, 'MAS', async (fId) => {
+                const response = await fetch(`/generate-mas/${fId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to generate MAS');
+                }
+                
+                const result = await response.json();
+                if (result.success && result.file_path) {
+                    showAlert('✅ MAS generated successfully!', 'success');
+                    // Trigger download
+                    const link = document.createElement('a');
+                    link.href = result.file_path;
+                    link.download = result.file_path.split('/').pop();
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                } else {
+                    throw new Error(result.error || 'Failed to generate MAS');
+                }
+            });
         }
     </script>
 </body>

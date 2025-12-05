@@ -2,6 +2,12 @@
 
 async function stitchTables(fileId) {
     const stitchResult = document.getElementById(`stitch-result-${fileId}`);
+    
+    if (!stitchResult) {
+        console.error('Stitch result element not found for file:', fileId);
+        showAlert('Error: Could not find result container. Please refresh the page and try again.', 'error');
+        return;
+    }
 
     // Show loading
     stitchResult.style.display = 'block';
@@ -15,19 +21,36 @@ async function stitchTables(fileId) {
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
             let errorMessage = errorData.error || errorData.details || `HTTP ${response.status}`;
+            let recoverySteps = '';
 
             if (response.status === 404) {
-                errorMessage = `File not found. The file may not exist in the session. Please upload the file again.`;
+                const errorData = await response.json().catch(() => ({}));
+                if (errorData.available_files && errorData.available_files.length > 0) {
+                    const filesList = errorData.available_files.map(f => `<li>${f.name || f.id}</li>`).join('');
+                    errorMessage = `File not found in session. Available files: <ul>${filesList}</ul>`;
+                    recoverySteps = `<p><strong>🔧 How to fix:</strong> Click on one of the available files above to extract it again, or re-upload your file.</p>`;
+                } else {
+                    errorMessage = `File not found. The file may not exist in the session. This can happen if:<br>
+                    • The session expired (files are kept for 2 hours)<br>
+                    • The page was refreshed before extraction completed<br>
+                    • The browser was closed and reopened`;
+                    recoverySteps = `<p><strong>🔧 How to fix:</strong><br>
+                    1. Re-upload your file using the upload button above<br>
+                    2. Wait for extraction to complete<br>
+                    3. Then click "Stitch All Tables" again</p>`;
+                }
             } else if (response.status === 400) {
                 errorMessage = errorData.details || errorData.error || 'No tables found to stitch. The extraction may not have found any tables in the document.';
                 if (errorData.available_keys) {
                     errorMessage += ` Available keys: ${errorData.available_keys.join(', ')}`;
                 }
+                recoverySteps = `<p><strong>🔧 How to fix:</strong> Make sure the file contains tables and try extracting it again.</p>`;
             }
 
-            stitchResult.innerHTML = `<div style="background: #ffebee; padding: 15px; border-radius: 6px; border-left: 4px solid #f44336; color: #c62828;">
+            stitchResult.innerHTML = `<div style="background: #ffebee; padding: 20px; border-radius: 6px; border-left: 4px solid #f44336; color: #c62828;">
                 <strong>❌ Error stitching tables:</strong><br>
                 ${errorMessage}
+                ${recoverySteps}
             </div>`;
             console.error('Stitch error:', errorData);
             return;
@@ -59,6 +82,21 @@ async function stitchTables(fileId) {
             // Parse and style the stitched table
             let tempDiv = document.createElement('div');
             tempDiv.innerHTML = result.stitched_html;
+
+            // DEBUG: Check if images are in the HTML
+            const allImagesBefore = tempDiv.querySelectorAll('img');
+            console.log(`[DEBUG] Images found in stitched_html: ${allImagesBefore.length}`);
+            if (allImagesBefore.length > 0) {
+                allImagesBefore.forEach((img, idx) => {
+                    console.log(`[DEBUG] Image ${idx + 1}: src="${img.src}", alt="${img.alt}"`);
+                });
+            } else {
+                console.warn('[DEBUG] NO IMAGES FOUND in stitched_html!');
+                // Check if HTML contains img tags as text
+                if (result.stitched_html.includes('<img')) {
+                    console.warn('[DEBUG] HTML contains <img tags but querySelectorAll found none - might be malformed HTML');
+                }
+            }
 
             // Style the stitched table and make it editable
             tempDiv.querySelectorAll('table').forEach(table => {
@@ -167,8 +205,9 @@ async function stitchTables(fileId) {
 
                     cells.forEach(cell => {
                         const cellText = cell.textContent.trim();
-                        // Check if cell has actual content (not just whitespace)
-                        if (cellText && cellText.length > 0) {
+                        // Check if cell has actual content (not just whitespace) OR contains images
+                        const hasImage = cell.querySelector('img') || cell.innerHTML.includes('<img');
+                        if ((cellText && cellText.length > 0) || hasImage) {
                             hasContent = true;
                         }
                     });
@@ -282,7 +321,12 @@ async function stitchTables(fileId) {
                 });
 
                 // Make images draggable
-                table.querySelectorAll('img').forEach(img => {
+                const imagesInTable = table.querySelectorAll('img');
+                console.log(`[DEBUG] Found ${imagesInTable.length} images in table after styling`);
+                
+                imagesInTable.forEach((img, idx) => {
+                    console.log(`[DEBUG] Processing image ${idx + 1}: src="${img.src}"`);
+                    
                     img.style.maxWidth = '100px';
                     img.style.maxHeight = '100px';
                     img.style.width = 'auto';
@@ -316,14 +360,29 @@ async function stitchTables(fileId) {
                         this.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
                     };
                 });
+                
+                if (imagesInTable.length === 0) {
+                    console.warn('[DEBUG] NO IMAGES FOUND in table after processing!');
+                    // Check cells for image HTML
+                    table.querySelectorAll('td').forEach((cell, cellIdx) => {
+                        if (cell.innerHTML.includes('<img')) {
+                            console.log(`[DEBUG] Cell ${cellIdx} contains <img tag but no img element found. HTML: ${cell.innerHTML.substring(0, 200)}`);
+                        }
+                    });
+                }
             });
 
             stitchedHtml += tempDiv.innerHTML + `
                     </div>
-                    <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
-                        <button class="action-btn btn-info" onclick="downloadEditedTable('${fileId}')">📥 Download Edited Table</button>
-                        <button class="action-btn btn-warning" onclick="addTableRow('${fileId}')">➕ Add Row at Bottom</button>
-                        <button class="action-btn btn-danger" onclick="resetTable('${fileId}')">🔄 Reset to Original</button>
+                    <div style="margin-top: 20px; display: flex; justify-content: center;">
+                        <button class="action-btn" onclick="openCosting('${fileId}')">💰 Apply Costing</button>
+                    </div>
+                    <div style="margin-top: 15px; display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;">
+                        <button class="action-btn" onclick="generateOfferPDF('${fileId}')">📄 Download Offer PDF</button>
+                        <button class="action-btn" onclick="generateOfferExcel('${fileId}')">📊 Download Offer Excel</button>
+                        <button class="action-btn" onclick="generatePresentationPPTX('${fileId}')">📽️ Generate Presentation</button>
+                        <button class="action-btn" onclick="generatePresentationPDF('${fileId}')">📑 Generate Presentation PDF</button>
+                        <button class="action-btn" onclick="generateMAS('${fileId}')">📋 Generate MAS</button>
                     </div>
                 </div>
             `;
@@ -351,13 +410,8 @@ async function stitchTables(fileId) {
 
             switch (workflowType) {
                 case 'quote-pricelist':
-                    // Show costing card for quote workflow
+                    // Set current file ID for costing (card will be shown when user clicks "Apply Costing" button)
                     currentFileIdForCosting = fileId;
-                    const costingCard = document.getElementById('costingCard');
-                    if (costingCard) {
-                        costingCard.style.display = 'block';
-                        costingCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                    }
                     break;
                 case 'presentation':
                     // Show presentation card
@@ -647,26 +701,43 @@ async function generatePresentation() {
     }
 }
 
-async function generateMAS() {
+async function generateMASFromCosting() {
+    console.log('generateMASFromCosting called - currentFileIdForCosting:', currentFileIdForCosting);
+    
     if (!currentFileIdForCosting) {
         showAlert('Please select a table first', 'error');
         return;
     }
 
+    let popup = null;
     try {
+        popup = showProgressPopup('Preparing MAS PDF...');
+        updateProgressPopup(20, 'Preparing MAS PDF...');
+
+        updateProgressPopup(50, 'Generating Material Approval Sheet...');
         const response = await fetch(`/generate-mas/${currentFileIdForCosting}`, {
             method: 'POST'
         });
 
         const result = await response.json();
+        console.log('MAS generation result:', result);
 
         if (result.success) {
-            showAlert('MAS generated successfully! 📋', 'success');
+            updateProgressPopup(90, 'Finalizing...');
             window.open(`/download/mas/${currentFileIdForCosting}?format=pdf`, '_blank');
+            
+            updateProgressPopup(100, 'Completed!');
+            setTimeout(() => {
+                closeProgressPopup();
+                showAlert('✅ MAS generated successfully!', 'success');
+            }, 800);
         } else {
+            closeProgressPopup();
             showAlert('Error: ' + result.error, 'error');
         }
     } catch (error) {
+        console.error('MAS generation error:', error);
+        closeProgressPopup();
         showAlert('Error: ' + error.message, 'error');
     }
 }
@@ -1243,4 +1314,232 @@ function handleDrop(event) {
     }
 
     return false;
+}
+
+// ============================================
+// New Zero-Costing Document Generation Functions
+// ============================================
+
+/**
+ * Helper function to apply zero costing and then execute a callback
+ */
+async function applyZeroCostingAndExecute(fileId, actionName, callback) {
+    try {
+        // Show progress indicator
+        showAlert(`⏳ Preparing ${actionName}...`, 'info');
+        
+        // Get table data from DOM
+        const table = document.getElementById(`table-${fileId}`);
+        if (!table) {
+            throw new Error('Table not found');
+        }
+        
+        const tableData = extractTableData(table);
+        
+        // Apply zero costing factors
+        const response = await fetch(`/apply-zero-costing/${fileId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ table_data: tableData })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to apply zero costing');
+        }
+        
+        const result = await response.json();
+        if (!result.success) {
+            throw new Error(result.error || 'Failed to apply zero costing');
+        }
+        
+        // Execute the callback function
+        showAlert(`✅ Generating ${actionName}...`, 'info');
+        await callback(fileId);
+        
+    } catch (error) {
+        console.error(`Error in ${actionName}:`, error);
+        showAlert(`❌ Failed to generate ${actionName}: ${error.message}`, 'error');
+    }
+}
+
+/**
+ * Extract table data from DOM for costing
+ */
+function extractTableData(table) {
+    const headers = [];
+    const rows = [];
+    
+    // Extract headers
+    const headerRow = table.rows[0];
+    for (let i = 0; i < headerRow.cells.length; i++) {
+        const cell = headerRow.cells[i];
+        if (!cell.classList.contains('action-column-header')) {
+            headers.push(cell.textContent.trim());
+        }
+    }
+    
+    // Extract rows
+    for (let i = 1; i < table.rows.length; i++) {
+        const row = table.rows[i];
+        const rowData = {};
+        let colIndex = 0;
+        
+        for (let j = 0; j < row.cells.length; j++) {
+            const cell = row.cells[j];
+            if (!cell.classList.contains('action-column-cell')) {
+                // Check if cell contains an image
+                const img = cell.querySelector('img');
+                if (img && img.src) {
+                    // Store cell HTML with image tag so presentation generator can extract it
+                    rowData[headers[colIndex]] = cell.innerHTML;
+                } else {
+                    // Just store text for non-image cells
+                    rowData[headers[colIndex]] = cell.textContent.trim();
+                }
+                
+                colIndex++;
+            }
+        }
+        rows.push(rowData);
+    }
+    
+    return { headers, rows };
+}
+
+/**
+ * Generate and download Offer PDF
+ */
+async function generateOfferPDF(fileId) {
+    await applyZeroCostingAndExecute(fileId, 'Offer PDF', async (fId) => {
+        const response = await fetch(`/generate-offer/${fId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to generate offer PDF');
+        }
+        
+        const result = await response.json();
+        if (result.success && result.file_path) {
+            showAlert('✅ Offer PDF generated successfully!', 'success');
+            // Trigger download instead of opening in browser
+            const link = document.createElement('a');
+            link.href = result.file_path;
+            link.download = result.file_path.split('/').pop();
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } else {
+            throw new Error(result.error || 'Failed to generate offer PDF');
+        }
+    });
+}
+
+/**
+ * Generate and download Offer Excel
+ */
+async function generateOfferExcel(fileId) {
+    await applyZeroCostingAndExecute(fileId, 'Offer Excel', async (fId) => {
+        // Download costed table as Excel
+        window.open(`/download/costed/${fId}`, '_blank');
+        showAlert('✅ Offer Excel downloaded successfully!', 'success');
+    });
+}
+
+/**
+ * Generate Presentation (PPTX)
+ */
+async function generatePresentationPPTX(fileId) {
+    await applyZeroCostingAndExecute(fileId, 'Presentation', async (fId) => {
+        const response = await fetch(`/generate-presentation/${fId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ format: 'pptx' })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to generate presentation');
+        }
+        
+        const result = await response.json();
+        if (result.success && result.file_path) {
+            showAlert('✅ Presentation generated successfully!', 'success');
+            // Trigger download
+            const link = document.createElement('a');
+            link.href = result.file_path;
+            link.download = result.file_path.split('/').pop();
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } else {
+            throw new Error(result.error || 'Failed to generate presentation');
+        }
+    });
+}
+
+/**
+ * Generate Presentation PDF
+ */
+async function generatePresentationPDF(fileId) {
+    await applyZeroCostingAndExecute(fileId, 'Presentation PDF', async (fId) => {
+        const response = await fetch(`/generate-presentation/${fId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ format: 'pdf' })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to generate presentation PDF');
+        }
+        
+        const result = await response.json();
+        if (result.success && result.file_path) {
+            showAlert('✅ Presentation PDF generated successfully!', 'success');
+            // Trigger download
+            const link = document.createElement('a');
+            link.href = result.file_path;
+            link.download = result.file_path.split('/').pop();
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } else {
+            throw new Error(result.error || 'Failed to generate presentation PDF');
+        }
+    });
+}
+
+/**
+ * Generate MAS document
+ */
+async function generateMAS(fileId) {
+    await applyZeroCostingAndExecute(fileId, 'MAS', async (fId) => {
+        const response = await fetch(`/generate-mas/${fId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to generate MAS');
+        }
+        
+        const result = await response.json();
+        if (result.success && result.file_path) {
+            showAlert('✅ MAS generated successfully!', 'success');
+            // Trigger download
+            const link = document.createElement('a');
+            link.href = result.file_path;
+            link.download = result.file_path.split('/').pop();
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } else {
+            throw new Error(result.error || 'Failed to generate MAS');
+        }
+    });
 }

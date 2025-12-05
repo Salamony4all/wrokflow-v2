@@ -8,11 +8,14 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
 from reportlab.pdfgen import canvas
 from datetime import datetime
 import re
+import logging
 from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.enum.text import PP_ALIGN
 from pptx.dml.color import RGBColor
 from bs4 import BeautifulSoup
+
+logger = logging.getLogger(__name__)
 
 class PresentationGenerator:
     """Generate eye-catching technical presentations - 1 page per item"""
@@ -61,14 +64,21 @@ class PresentationGenerator:
 
     def _get_logo_path(self):
         candidates = [
+            os.path.join('static', 'images', 'al-shaya-logo-white@2x.png'),  # White logo first for presentations
             os.path.join('static', 'images', 'AlShaya-Logo-color@2x.png'),
-            os.path.join('static', 'images', 'LOGO.png'),
-            os.path.join('static', 'images', 'al-shaya-logo-white@2x.png')
+            os.path.join('static', 'images', 'LOGO.png')
         ]
         for p in candidates:
             if os.path.exists(p):
                 return p
         return None
+
+    def _get_white_logo_path(self):
+        """Get white logo specifically for PPTX presentations"""
+        white_logo = os.path.join('static', 'images', 'al-shaya-logo-white@2x.png')
+        if os.path.exists(white_logo):
+            return white_logo
+        return self._get_logo_path()  # Fallback to default
 
     def _draw_header_footer(self, canv: canvas.Canvas, doc):
         """Draw properly placed header logo and footer website for presentation PDF."""
@@ -105,11 +115,12 @@ class PresentationGenerator:
     def generate(self, file_id, session, format_type='pdf'):
         """
         Generate technical presentation with 1 page/slide per item
+        Always generates PPTX first, then converts to PDF if needed
         Args:
             file_id: The file ID
             session: Flask session
             format_type: 'pdf' or 'pptx'
-        Returns: path to generated file
+        Returns: path to generated file (PDF or PPTX), and stores PPTX path in session
         """
         # Get file info and extracted data
         uploaded_files = session.get('uploaded_files', [])
@@ -144,12 +155,18 @@ class PresentationGenerator:
         # Generate file based on format
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
+        # ALWAYS generate PPTX first (will be available for download)
+        pptx_file = os.path.join(output_dir, f'presentation_{file_id}_{timestamp}.pptx')
+        self.generate_pptx(items, pptx_file)
+        
+        # Store PPTX path in file_info for later download
+        file_info['presentation_pptx'] = pptx_file
+        
         if format_type == 'pptx':
-            output_file = os.path.join(output_dir, f'presentation_{file_id}_{timestamp}.pptx')
-            self.generate_pptx(items, output_file)
-        else:  # pdf
+            output_file = pptx_file
+        else:  # pdf - convert PPTX to PDF to maintain same layout
             output_file = os.path.join(output_dir, f'presentation_{file_id}_{timestamp}.pdf')
-            self.generate_pdf(items, output_file)
+            self.convert_pptx_to_pdf(pptx_file, output_file)
         
         return output_file
     
@@ -159,13 +176,14 @@ class PresentationGenerator:
         session_id = session.get('session_id', '')
         
         for table in costed_data.get('tables', []):
-            headers = [h for h in table.get('headers', []) if h.lower() not in ['action', 'actions', 'product selection', 'productselection']]
+            headers = [h for h in table.get('headers', []) if str(h).lower() not in ['action', 'actions', 'product selection', 'productselection']]
             
             for row in table.get('rows', []):
                 # Find description column
                 description = ''
                 for h in headers:
-                    if 'description' in h.lower() or 'item' in h.lower():
+                    h_str = str(h).lower() if h else ''
+                    if 'descript' in h_str or 'discript' in h_str or 'item' in h_str:  # Handle misspelling
                         description = self.strip_html(row.get(h, ''))
                         break
                 
@@ -173,18 +191,20 @@ class PresentationGenerator:
                 qty = ''
                 unit = ''
                 for h in headers:
-                    if 'qty' in h.lower() or 'quantity' in h.lower():
+                    h_str = str(h).lower() if h else ''
+                    if 'qty' in h_str or 'quantity' in h_str:
                         qty = self.strip_html(row.get(h, ''))
-                    if 'unit' in h.lower() and 'rate' not in h.lower():
+                    if 'unit' in h_str and 'rate' not in h_str:
                         unit = self.strip_html(row.get(h, ''))
                 
                 # Find pricing
                 unit_rate = ''
                 total = ''
                 for h in headers:
-                    if 'rate' in h.lower() or 'price' in h.lower():
+                    h_str = str(h).lower() if h else ''
+                    if 'rate' in h_str or 'price' in h_str:
                         unit_rate = self.strip_html(row.get(h, ''))
-                    if 'total' in h.lower() or 'amount' in h.lower():
+                    if 'total' in h_str or 'amount' in h_str:
                         total = self.strip_html(row.get(h, ''))
                 
                 # Find image
@@ -222,6 +242,7 @@ class PresentationGenerator:
         # Find the table
         table = soup.find('table')
         if not table:
+            logger.error("No table found in stitched HTML")
             return items
         
         # Get headers
@@ -234,8 +255,12 @@ class PresentationGenerator:
                 if header_text not in ['action', 'actions', 'product selection', 'productselection']:
                     headers.append(header_text)
         
+        logger.info(f"Found headers: {headers}")
+        logger.info(f"Checking for description header in: {headers}")
+        
         # Get data rows (skip header row)
         rows = table.find_all('tr')[1:]  # Skip first row (headers)
+        logger.info(f"Found {len(rows)} data rows")
         
         for row in rows:
             cells = row.find_all('td')
@@ -262,30 +287,39 @@ class PresentationGenerator:
             
             # Extract fields
             description = ''
+            logger.debug(f"Looking for description in headers: {headers}")
+            logger.debug(f"Row data keys: {list(row_data.keys())}")
+            
             for h in headers:
-                if 'description' in h or 'item' in h:
+                # Ensure header is a string
+                h_str = str(h).lower() if h else ''
+                if 'descript' in h_str or 'item' in h_str or 'discript' in h_str:  # Handle misspelling
                     description = self.strip_html(row_data.get(h, ''))
+                    logger.debug(f"Found description in header '{h}': {description[:50] if description else 'empty'}")
                     break
             
             if not description:
+                logger.warning(f"No description found in row. Headers: {headers}, Row data keys: {list(row_data.keys())}")
                 continue
             
             # Find quantity
             qty = ''
             unit = ''
             for h in headers:
-                if 'qty' in h or 'quantity' in h:
+                h_str = str(h).lower() if h else ''
+                if 'qty' in h_str or 'quantity' in h_str:
                     qty = self.strip_html(row_data.get(h, ''))
-                if 'unit' in h and 'rate' not in h and 'price' not in h:
+                if 'unit' in h_str and 'rate' not in h_str and 'price' not in h_str:
                     unit = self.strip_html(row_data.get(h, ''))
             
             # Find pricing
             unit_rate = ''
             total = ''
             for h in headers:
-                if ('rate' in h or 'price' in h) and 'unit' in h:
+                h_str = str(h).lower() if h else ''
+                if ('rate' in h_str or 'price' in h_str) and 'unit' in h_str:
                     unit_rate = self.strip_html(row_data.get(h, ''))
-                if 'total' in h or 'amount' in h:
+                if 'total' in h_str or 'amount' in h_str:
                     total = self.strip_html(row_data.get(h, ''))
             
             # Find image
@@ -308,6 +342,7 @@ class PresentationGenerator:
             }
             items.append(item)
         
+        logger.info(f"Parsed {len(items)} items from stitched table")
         return items
     
     def strip_html(self, text):
@@ -329,28 +364,47 @@ class PresentationGenerator:
                 if img_path.startswith('http://') or img_path.startswith('https://'):
                     return img_path
                 
-                # Handle local paths
+                # Handle local paths - if already starts with outputs, return as-is
                 if img_path.startswith('outputs'):
+                    # Check if file exists
+                    if os.path.exists(img_path):
+                        return img_path
+                    # If not, might be missing file - still return it
                     return img_path
                 else:
+                    # Ensure all parts are strings
+                    if isinstance(session_id, (list, tuple)):
+                        session_id = session_id[0] if session_id else ''
+                    if isinstance(file_id, (list, tuple)):
+                        file_id = file_id[0] if file_id else ''
+                    if isinstance(img_path, (list, tuple)):
+                        img_path = img_path[0] if img_path else ''
+                    
                     # Check if it's a relative path that needs to be joined
-                    full_path = os.path.join('outputs', session_id, file_id, img_path)
+                    full_path = os.path.join('outputs', str(session_id), str(file_id), str(img_path))
                     if os.path.exists(full_path):
                         return full_path
                     # Also try without the session_id/file_id prefix in case it's already included
-                    if os.path.exists(img_path):
-                        return img_path
+                    if os.path.exists(str(img_path)):
+                        return str(img_path)
                     return full_path  # Return even if doesn't exist yet, let download logic handle it
             
-            if 'img_in_' in str(cell_value):
-                match = re.search(r'(imgs/img_in_[^"\s<>]+\.jpg)', str(cell_value))
+            # Look for any image path pattern in imgs/ folder (more flexible regex)
+            if 'imgs/' in str(cell_value):
+                match = re.search(r'(imgs/[^"\s<>]+\.(jpg|png|jpeg|gif|webp))', str(cell_value), re.IGNORECASE)
                 if match:
                     img_relative_path = match.group(1)
-                    full_path = os.path.join('outputs', session_id, file_id, img_relative_path)
+                    # Ensure all parts are strings
+                    if isinstance(session_id, (list, tuple)):
+                        session_id = session_id[0] if session_id else ''
+                    if isinstance(file_id, (list, tuple)):
+                        file_id = file_id[0] if file_id else ''
+                    full_path = os.path.join('outputs', str(session_id), str(file_id), str(img_relative_path))
                     if os.path.exists(full_path):
                         return full_path
                     return full_path  # Return even if doesn't exist yet
         except Exception as e:
+            logger.error(f"Error extracting image path: {e}")
             pass
         return None
     
@@ -389,51 +443,105 @@ class PresentationGenerator:
         
         prs.save(output_file)
     
+    def convert_pptx_to_pdf(self, pptx_file, pdf_file):
+        """Convert PPTX to PDF using PowerPoint COM automation on Windows"""
+        try:
+            import platform
+            import time
+            
+            if platform.system() == 'Windows':
+                try:
+                    import comtypes.client
+                    
+                    logger.info(f"Converting PPTX to PDF using PowerPoint COM: {pptx_file}")
+                    
+                    # Convert paths to absolute
+                    pptx_abs = os.path.abspath(pptx_file)
+                    pdf_abs = os.path.abspath(pdf_file)
+                    
+                    logger.info(f"Absolute paths - PPTX: {pptx_abs}, PDF: {pdf_abs}")
+                    
+                    # Create PowerPoint application
+                    powerpoint = comtypes.client.CreateObject("Powerpoint.Application")
+                    powerpoint.Visible = 1  # Must be visible for COM automation
+                    
+                    logger.info("PowerPoint application created")
+                    
+                    # Open presentation without window restrictions
+                    presentation = powerpoint.Presentations.Open(pptx_abs)
+                    
+                    logger.info("Presentation opened")
+                    
+                    # Save as PDF (32 = ppSaveAsPDF)
+                    presentation.SaveAs(pdf_abs, 32)
+                    
+                    logger.info("SaveAs called")
+                    
+                    # Close and cleanup
+                    presentation.Close()
+                    powerpoint.Quit()
+                    
+                    logger.info("PowerPoint closed")
+                    
+                    # Wait for file to be fully written
+                    max_wait = 10  # 10 seconds max
+                    wait_time = 0
+                    while wait_time < max_wait:
+                        if os.path.exists(pdf_abs) and os.path.getsize(pdf_abs) > 1000:
+                            logger.info(f"PDF created successfully: {pdf_abs} ({os.path.getsize(pdf_abs)} bytes)")
+                            return
+                        time.sleep(0.5)
+                        wait_time += 0.5
+                    
+                    logger.warning(f"PDF file not found or too small after {max_wait} seconds")
+                    
+                except Exception as e:
+                    logger.error(f"PowerPoint COM conversion failed: {e}")
+                    import traceback
+                    logger.error(traceback.format_exc())
+                    raise
+            else:
+                raise Exception("PowerPoint COM automation is only available on Windows")
+            
+        except Exception as e:
+            logger.error(f"Error converting PPTX to PDF: {e}")
+            raise Exception(f"Could not convert presentation to PDF. Please ensure Microsoft PowerPoint is installed. Error: {str(e)}")
+    
     def create_title_slide_pptx(self, prs):
         """Create PowerPoint title slide with enhanced design"""
         slide_layout = prs.slide_layouts[6]  # Blank layout
         slide = prs.slides.add_slide(slide_layout)
         
-        # Background - Navy blue header box
+        # Background - Navy blue header box (increased height to contain full logo)
         header_shape = slide.shapes.add_shape(
             1,  # Rectangle
             Inches(0), Inches(0), 
-            Inches(10), Inches(2.5)
+            Inches(10), Inches(3.2)
         )
         header_shape.fill.solid()
         header_shape.fill.fore_color.rgb = RGBColor(26, 54, 93)  # Navy blue
         header_shape.line.fill.background()
         
-        # Gold accent bar
+        # Gold accent bar (moved down to be below the logo)
         accent_shape = slide.shapes.add_shape(
             1,  # Rectangle
-            Inches(0), Inches(2.5),
+            Inches(0), Inches(3.2),
             Inches(10), Inches(0.15)
         )
         accent_shape.fill.solid()
         accent_shape.fill.fore_color.rgb = RGBColor(212, 175, 55)  # Gold
         accent_shape.line.fill.background()
         
-        # Logo centered in header
-        logo = self._get_logo_path()
+        # Logo centered in header with more vertical space - use white logo
+        logo = self._get_white_logo_path()
         if logo and os.path.exists(logo):
             try:
-                slide.shapes.add_picture(logo, Inches(3.5), Inches(0.4), width=Inches(3))
+                slide.shapes.add_picture(logo, Inches(3.5), Inches(0.8), width=Inches(3))
             except Exception:
                 pass
         
-        # Company name below logo in white
-        company_box = slide.shapes.add_textbox(Inches(2), Inches(1.7), Inches(6), Inches(0.5))
-        company_frame = company_box.text_frame
-        company_frame.text = "ALSHAYA ENTERPRISES"
-        company_p = company_frame.paragraphs[0]
-        company_p.font.size = Pt(20)
-        company_p.font.bold = True
-        company_p.font.color.rgb = RGBColor(212, 175, 55)  # Gold text
-        company_p.alignment = PP_ALIGN.CENTER
-        
-        # Title with navy background
-        title_box = slide.shapes.add_textbox(Inches(1), Inches(3.2), Inches(8), Inches(1))
+        # Title with navy background (no company name - removed as requested)
+        title_box = slide.shapes.add_textbox(Inches(1), Inches(3.9), Inches(8), Inches(1))
         title_frame = title_box.text_frame
         title_frame.text = "TECHNICAL PROPOSAL"
         title_p = title_frame.paragraphs[0]
@@ -443,7 +551,7 @@ class PresentationGenerator:
         title_p.alignment = PP_ALIGN.CENTER
         
         # Subtitle
-        subtitle_box = slide.shapes.add_textbox(Inches(2), Inches(4.3), Inches(6), Inches(0.6))
+        subtitle_box = slide.shapes.add_textbox(Inches(2), Inches(5.0), Inches(6), Inches(0.6))
         subtitle_frame = subtitle_box.text_frame
         subtitle_frame.text = "Furniture, Fixtures & Equipment"
         subtitle_p = subtitle_frame.paragraphs[0]
@@ -452,7 +560,7 @@ class PresentationGenerator:
         subtitle_p.alignment = PP_ALIGN.CENTER
         
         # Date
-        date_box = slide.shapes.add_textbox(Inches(3), Inches(5.5), Inches(4), Inches(0.5))
+        date_box = slide.shapes.add_textbox(Inches(3), Inches(6.2), Inches(4), Inches(0.5))
         date_frame = date_box.text_frame
         date_frame.text = datetime.now().strftime('%B %d, %Y')
         date_p = date_frame.paragraphs[0]
@@ -474,11 +582,11 @@ class PresentationGenerator:
         slide_layout = prs.slide_layouts[6]  # Blank layout
         slide = prs.slides.add_slide(slide_layout)
         
-        # Header bar with navy blue background
+        # Header bar with navy blue background - increased height
         header_shape = slide.shapes.add_shape(
             1,  # Rectangle
             Inches(0), Inches(0),
-            Inches(10), Inches(0.8)
+            Inches(10), Inches(1.1)
         )
         header_shape.fill.solid()
         header_shape.fill.fore_color.rgb = RGBColor(26, 54, 93)  # Navy blue
@@ -487,32 +595,32 @@ class PresentationGenerator:
         # Gold accent line under header
         accent_line = slide.shapes.add_shape(
             1,  # Rectangle
-            Inches(0), Inches(0.8),
+            Inches(0), Inches(1.1),
             Inches(10), Inches(0.08)
         )
         accent_line.fill.solid()
         accent_line.fill.fore_color.rgb = RGBColor(212, 175, 55)  # Gold
         accent_line.line.fill.background()
         
-        # Small logo top-right in header
-        logo = self._get_logo_path()
+        # Small white logo top-right in header
+        logo = self._get_white_logo_path()
         if logo and os.path.exists(logo):
             try:
-                slide.shapes.add_picture(logo, Inches(8.5), Inches(0.15), width=Inches(1.3))
+                slide.shapes.add_picture(logo, Inches(8.2), Inches(0.2), width=Inches(1.5))
             except Exception:
                 pass
         
-        # Title in header (white text)
-        title_box = slide.shapes.add_textbox(Inches(0.5), Inches(0.15), Inches(7.5), Inches(0.6))
+        # Title in header - positioned to not overlap logo (left-aligned with more space)
+        title_box = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(7.2), Inches(0.6))
         title_frame = title_box.text_frame
-        title_text = f"Item {page_num}: {item['description'][:65]}"
+        title_text = f"Item {page_num}: {item['description'][:55]}"
         title_frame.text = title_text
         title_p = title_frame.paragraphs[0]
         title_p.font.size = Pt(20)
         title_p.font.bold = True
         title_p.font.color.rgb = RGBColor(255, 255, 255)  # White text on navy
         
-        # Image (left side) - adjusted position
+        # Image (left side) - adjusted position to account for taller header
         image_path = item.get('image_path')
         if image_path:
             # If it's a URL, download it first
@@ -524,29 +632,29 @@ class PresentationGenerator:
             
             if image_path and os.path.exists(image_path):
                 try:
-                    slide.shapes.add_picture(image_path, Inches(0.6), Inches(1.5), 
+                    slide.shapes.add_picture(image_path, Inches(0.6), Inches(1.8), 
                                             width=Inches(4.2), height=Inches(4.2))
                 except Exception as e:
                     # If image fails, add placeholder
-                    img_placeholder = slide.shapes.add_textbox(Inches(0.6), Inches(3), Inches(4.2), Inches(1))
+                    img_placeholder = slide.shapes.add_textbox(Inches(0.6), Inches(3.3), Inches(4.2), Inches(1))
                     img_frame = img_placeholder.text_frame
                     img_frame.text = "[Image Not Available]"
                     img_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
             else:
                 # Add placeholder
-                img_placeholder = slide.shapes.add_textbox(Inches(0.6), Inches(3), Inches(4.2), Inches(1))
+                img_placeholder = slide.shapes.add_textbox(Inches(0.6), Inches(3.3), Inches(4.2), Inches(1))
                 img_frame = img_placeholder.text_frame
                 img_frame.text = "[Image Not Available]"
                 img_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
         else:
             # Add placeholder
-            img_placeholder = slide.shapes.add_textbox(Inches(0.6), Inches(3), Inches(4.2), Inches(1))
+            img_placeholder = slide.shapes.add_textbox(Inches(0.6), Inches(3.3), Inches(4.2), Inches(1))
             img_frame = img_placeholder.text_frame
             img_frame.text = "[Image Not Available]"
             img_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
         
-        # Details box (right side) - with border
-        details_box = slide.shapes.add_textbox(Inches(5.2), Inches(1.5), Inches(4.3), Inches(5.3))
+        # Details box (right side) - adjusted position for taller header
+        details_box = slide.shapes.add_textbox(Inches(5.2), Inches(1.8), Inches(4.3), Inches(5.0))
         details_frame = details_box.text_frame
         details_frame.word_wrap = True
         
@@ -565,30 +673,16 @@ class PresentationGenerator:
         desc_p.font.color.rgb = RGBColor(51, 51, 51)  # Dark text
         desc_p.space_after = Pt(10)
         
-        # Key Details with icons/bullets
+        # Key Details - professional text only (no icons)
         p = details_frame.add_paragraph()
-        p.text = f"🏢 Brand: {item['brand']}"
+        p.text = f"Brand: {item['brand']}"
         p.font.size = Pt(13)
         p.font.bold = True
         p.space_after = Pt(6)
         
         p = details_frame.add_paragraph()
-        p.text = f"📦 Quantity: {item['qty']} {item['unit']}"
+        p.text = f"Quantity: {item['qty']} {item['unit']}"
         p.font.size = Pt(13)
-        p.space_after = Pt(6)
-        
-        p = details_frame.add_paragraph()
-        p.text = f"💰 Unit Rate: {item['unit_rate']}"
-        p.font.size = Pt(13)
-        p.font.color.rgb = RGBColor(212, 175, 55)  # Gold
-        p.font.bold = True
-        p.space_after = Pt(6)
-        
-        p = details_frame.add_paragraph()
-        p.text = f"💵 Total Amount: {item['total']}"
-        p.font.size = Pt(14)
-        p.font.color.rgb = RGBColor(26, 54, 93)  # Navy
-        p.font.bold = True
         p.space_after = Pt(12)
         
         # Specifications heading
@@ -739,15 +833,19 @@ class PresentationGenerator:
         """Find image associated with this item"""
         # Try to find image reference in row
         for key, value in row.items():
-            if 'image' in key.lower():
+            if 'image' in str(key).lower():
                 # Check if value references an image
+                value_str = str(value) if value else ''
                 for img_path, img_url in images.items():
-                    if value in img_path or img_path in value:
-                        return img_url
-        
+                    img_path_str = str(img_path) if img_path else ''
+                    img_url_str = str(img_url) if img_url else ''
+                    if value_str in img_path_str or img_path_str in value_str:
+                        return img_url_str
+                
         # Return first available image if no specific match
         if images:
-            return list(images.values())[0]
+            first_img = list(images.values())[0]
+            return str(first_img) if first_img else None
         
         return None
     

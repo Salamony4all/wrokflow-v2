@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Company Settings</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .settings-container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .settings-header {
+            background: linear-gradient(135deg, #1a365d 0%, #2d4a7e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .settings-header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .settings-header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .settings-content {
+            padding: 40px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #1a365d;
+            font-size: 14px;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s;
+            font-family: inherit;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .file-upload-wrapper {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+
+        .file-upload-label {
+            display: block;
+            padding: 12px 16px;
+            background: #f7fafc;
+            border: 2px dashed #cbd5e0;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .file-upload-label:hover {
+            background: #edf2f7;
+            border-color: #667eea;
+        }
+
+        .file-upload-label input[type="file"] {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .current-logo {
+            margin-top: 15px;
+            text-align: center;
+        }
+
+        .current-logo img {
+            max-width: 200px;
+            max-height: 100px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 10px;
+            background: #f7fafc;
+        }
+
+        .preview-section {
+            background: #f7fafc;
+            border-radius: 12px;
+            padding: 25px;
+            margin-top: 30px;
+            border: 2px solid #e2e8f0;
+        }
+
+        .preview-section h3 {
+            color: #1a365d;
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+
+        .preview-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .preview-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .preview-item strong {
+            display: block;
+            color: #4a5568;
+            font-size: 12px;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .preview-item span {
+            color: #1a365d;
+            font-size: 14px;
+        }
+
+        .preview-logo {
+            grid-column: 1 / -1;
+            text-align: center;
+        }
+
+        .preview-logo img {
+            max-width: 250px;
+            max-height: 120px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            background: white;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: white;
+            text-decoration: none;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .back-link:hover {
+            opacity: 1;
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert-success {
+            background: #c6f6d5;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+
+        .alert-error {
+            background: #fed7d7;
+            color: #742a2a;
+            border: 1px solid #fc8181;
+        }
+
+        .help-text {
+            font-size: 12px;
+            color: #718096;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="settings-container">
+        <div class="settings-header">
+            <a href="/app" class="back-link">← Back to App</a>
+            <h1>⚙️ Company Settings</h1>
+            <p>Configure your company branding for exports and UI</p>
+        </div>
+
+        <div class="settings-content">
+            <div id="alert" class="alert"></div>
+
+            <form id="settingsForm" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="logo">Company Logo</label>
+                    <div class="file-upload-wrapper">
+                        <label class="file-upload-label" for="logo">
+                            <input type="file" id="logo" name="logo" accept="image/png,image/jpeg,image/jpg">
+                            <span id="fileLabel">Click to upload logo (PNG, JPG)</span>
+                        </label>
+                    </div>
+                    <div class="help-text">Recommended: 300x100px or similar aspect ratio. Max 2MB.</div>
+                    <div class="current-logo" id="currentLogoPreview" style="display: none;">
+                        <p style="margin-bottom: 10px; color: #718096; font-size: 12px;">Current Logo:</p>
+                        <img id="logoPreview" src="" alt="Current Logo">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="name">Company Name *</label>
+                    <input type="text" id="name" name="name" required placeholder="Your Company Name">
+                </div>
+
+                <div class="form-group">
+                    <label for="website">Company Website</label>
+                    <input type="url" id="website" name="website" placeholder="https://yourcompany.com">
+                    <div class="help-text">Will appear in PDF/PPTX footers</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Company Email</label>
+                    <input type="email" id="email" name="email" placeholder="info@yourcompany.com">
+                </div>
+
+                <div class="form-group">
+                    <label for="phone">Company Phone</label>
+                    <input type="tel" id="phone" name="phone" placeholder="+1 234 567 8900">
+                </div>
+
+                <div class="form-group">
+                    <label for="address">Company Address</label>
+                    <textarea id="address" name="address" placeholder="123 Main St, City, Country"></textarea>
+                </div>
+
+                <div class="preview-section">
+                    <h3>Preview</h3>
+                    <div class="preview-content">
+                        <div class="preview-logo" id="previewLogo" style="display: none;">
+                            <img id="previewLogoImg" src="" alt="Logo Preview">
+                        </div>
+                        <div class="preview-item">
+                            <strong>Company Name</strong>
+                            <span id="previewName">-</span>
+                        </div>
+                        <div class="preview-item">
+                            <strong>Website</strong>
+                            <span id="previewWebsite">-</span>
+                        </div>
+                        <div class="preview-item">
+                            <strong>Email</strong>
+                            <span id="previewEmail">-</span>
+                        </div>
+                        <div class="preview-item">
+                            <strong>Phone</strong>
+                            <span id="previewPhone">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button type="button" class="btn btn-secondary" onclick="window.location.href='/app'">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Settings</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Load current settings
+        fetch('/api/settings')
+            .then(response => response.json())
+            .then(data => {
+                if (data.logo_path) {
+                    document.getElementById('logoPreview').src = data.logo_path;
+                    document.getElementById('currentLogoPreview').style.display = 'block';
+                }
+                document.getElementById('name').value = data.name || '';
+                document.getElementById('website').value = data.website || '';
+                document.getElementById('email').value = data.email || '';
+                document.getElementById('phone').value = data.phone || '';
+                document.getElementById('address').value = data.address || '';
+                updatePreview();
+            })
+            .catch(err => console.error('Error loading settings:', err));
+
+        // File input change handler
+        document.getElementById('logo').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                document.getElementById('fileLabel').textContent = file.name;
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('logoPreview').src = e.target.result;
+                    document.getElementById('currentLogoPreview').style.display = 'block';
+                    document.getElementById('previewLogoImg').src = e.target.result;
+                    document.getElementById('previewLogo').style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Update preview on input change
+        ['name', 'website', 'email', 'phone'].forEach(id => {
+            document.getElementById(id).addEventListener('input', updatePreview);
+        });
+
+        function updatePreview() {
+            document.getElementById('previewName').textContent = document.getElementById('name').value || '-';
+            document.getElementById('previewWebsite').textContent = document.getElementById('website').value || '-';
+            document.getElementById('previewEmail').textContent = document.getElementById('email').value || '-';
+            document.getElementById('previewPhone').textContent = document.getElementById('phone').value || '-';
+        }
+
+        // Form submission
+        document.getElementById('settingsForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const alertDiv = document.getElementById('alert');
+            
+            try {
+                const response = await fetch('/settings', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    alertDiv.className = 'alert alert-success';
+                    alertDiv.textContent = 'Settings saved successfully!';
+                    alertDiv.style.display = 'block';
+                    
+                    // Reload settings to show updated logo
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    alertDiv.className = 'alert alert-error';
+                    alertDiv.textContent = result.error || 'Failed to save settings';
+                    alertDiv.style.display = 'block';
+                }
+            } catch (error) {
+                alertDiv.className = 'alert alert-error';
+                alertDiv.textContent = 'Error: ' + error.message;
+                alertDiv.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>
+
+

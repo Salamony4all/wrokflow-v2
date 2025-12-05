@@ -35,6 +35,19 @@ class OfferGenerator:
             textColor=colors.HexColor('#1a365d'),
             spaceAfter=12
         )
+        
+        # Compact style for table cells
+        self.table_cell_style = ParagraphStyle(
+            'TableCell',
+            parent=self.styles['Normal'],
+            fontSize=8,
+            leading=10,
+            spaceAfter=0,
+            spaceBefore=0,
+            leftIndent=0,
+            rightIndent=0,
+            wordWrap='CJK'  # Better word wrapping
+        )
 
     def _get_logo_path(self):
         """Return the best available logo path."""
@@ -54,23 +67,23 @@ class OfferGenerator:
         gold = colors.HexColor('#d4af37')
         dark = colors.HexColor('#1a365d')
 
-        # Top separator line (moved higher for better logo space)
-        canv.setStrokeColor(gold)
-        canv.setLineWidth(2)
-        canv.line(doc.leftMargin, page_height - 40, page_width - doc.rightMargin, page_height - 40)
-
-        # Logo centered top header - larger and more visible
+        # Logo centered top header with proper spacing
         logo_path = self._get_logo_path()
         if logo_path and os.path.exists(logo_path):
             try:
-                logo_w = 140  # Larger logo
-                logo_h = 50
+                logo_w = 150  # Increased width
+                logo_h = 54   # Increased height for full logo visibility
                 # Center horizontally
                 x = (page_width - logo_w) / 2
-                y = page_height - 38  # Below the top margin
+                y = page_height - 65  # More space from top for complete logo
                 canv.drawImage(logo_path, x, y, width=logo_w, height=logo_h, preserveAspectRatio=True, mask='auto')
             except Exception:
                 pass
+
+        # Top separator line positioned below the logo with proper spacing
+        canv.setStrokeColor(gold)
+        canv.setLineWidth(2)
+        canv.line(doc.leftMargin, page_height - 75, page_width - doc.rightMargin, page_height - 75)
 
         # Footer with gold line and website centered
         canv.setStrokeColor(gold)
@@ -220,7 +233,7 @@ class OfferGenerator:
             headers = table_data['headers']
             # Filter out Action/Actions and Product Selection columns
             filtered_headers = [h for h in headers if h.lower() not in ['action', 'actions', 'product selection', 'productselection']]
-            header_row = [Paragraph(f"<b>{h}</b>", self.styles['Normal']) for h in filtered_headers]
+            header_row = [Paragraph(f"<b>{h}</b>", self.table_cell_style) for h in filtered_headers]
             table_rows.append(header_row)
             
             # Data rows - show only final costed prices with images
@@ -248,15 +261,37 @@ class OfferGenerator:
                         
                         if image_path and os.path.exists(image_path):
                             try:
-                                # Create image with proper sizing
-                                img = RLImage(image_path, width=1*inch, height=1*inch)
+                                # Create image with proper sizing - constrain to fit in cell
+                                from PIL import Image as PILImage
+                                pil_img = PILImage.open(image_path)
+                                img_width, img_height = pil_img.size
+                                
+                                # Calculate aspect ratio and constrain to much smaller size for table
+                                max_width = 0.6 * inch
+                                max_height = 0.6 * inch
+                                
+                                # Scale to fit within bounds while preserving aspect ratio
+                                width_ratio = max_width / img_width
+                                height_ratio = max_height / img_height
+                                scale_ratio = min(width_ratio, height_ratio)
+                                
+                                final_width = img_width * scale_ratio
+                                final_height = img_height * scale_ratio
+                                
+                                # Ensure minimum sensible size
+                                if final_width < 0.3 * inch:
+                                    final_width = 0.3 * inch
+                                if final_height < 0.3 * inch:
+                                    final_height = 0.3 * inch
+                                
+                                img = RLImage(image_path, width=final_width, height=final_height)
                                 table_row.append(img)
                             except Exception as e:
                                 # If image fails, show placeholder text
-                                table_row.append(Paragraph("[Image]", self.styles['Normal']))
+                                table_row.append(Paragraph("[Image]", self.table_cell_style))
                         else:
                             # Image not found, show placeholder
-                            table_row.append(Paragraph("[Image]", self.styles['Normal']))
+                            table_row.append(Paragraph("[Image]", self.table_cell_style))
                     else:
                         # Regular text cell - use final costed value only
                         # Strip any HTML tags that might remain
@@ -270,13 +305,13 @@ class OfferGenerator:
                             except:
                                 pass
                         
-                        table_row.append(Paragraph(final_value, self.styles['Normal']))
+                        table_row.append(Paragraph(final_value, self.table_cell_style))
                 
                 table_rows.append(table_row)
             
             # Create ReportLab table with appropriate column widths using filtered headers
             col_widths = self.calculate_column_widths(filtered_headers, len(filtered_headers))
-            t = Table(table_rows, colWidths=col_widths, repeatRows=1)
+            t = Table(table_rows, colWidths=col_widths, repeatRows=1, rowHeights=None)
             
             # Enhanced table styling
             table_style = TableStyle([
@@ -286,8 +321,8 @@ class OfferGenerator:
                 ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                 ('FONTSIZE', (0, 0), (-1, 0), 9),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
-                ('TOPPADDING', (0, 0), (-1, 0), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                ('TOPPADDING', (0, 0), (-1, 0), 8),
                 
                 # Data rows styling
                 ('BACKGROUND', (0, 1), (-1, -1), colors.white),
@@ -296,10 +331,10 @@ class OfferGenerator:
                 ('VALIGN', (0, 1), (-1, -1), 'MIDDLE'),
                 ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
                 ('FONTSIZE', (0, 1), (-1, -1), 8),
-                ('TOPPADDING', (0, 1), (-1, -1), 8),
-                ('BOTTOMPADDING', (0, 1), (-1, -1), 8),
-                ('LEFTPADDING', (0, 1), (-1, -1), 5),
-                ('RIGHTPADDING', (0, 1), (-1, -1), 5),
+                ('TOPPADDING', (0, 1), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+                ('LEFTPADDING', (0, 1), (-1, -1), 4),
+                ('RIGHTPADDING', (0, 1), (-1, -1), 4),
                 
                 # Grid
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
@@ -421,29 +456,36 @@ class OfferGenerator:
         return any(keyword in header.lower() for keyword in numeric_keywords)
     
     def calculate_column_widths(self, headers, num_cols):
-        """Calculate appropriate column widths based on headers"""
+        """Calculate appropriate column widths based on headers - prioritize description and images"""
         total_width = 7.5 * inch  # A4 page width minus margins
         
-        # Identify column types
+        # Identify column types and assign appropriate widths
         widths = []
         for header in headers:
             h_lower = header.lower()
-            if 'si' in h_lower or 'no' in h_lower or '#' in h_lower:
-                widths.append(0.5 * inch)  # Serial number - narrow
+            # Check for misspellings too
+            if 'si' in h_lower or 'sl' in h_lower or ('no' in h_lower and len(header) <= 5) or '#' in h_lower:
+                widths.append(0.4 * inch)  # Serial number - very narrow
             elif 'img' in h_lower or 'image' in h_lower or 'ref' in h_lower:
-                widths.append(1.2 * inch)  # Image column - wider
-            elif 'description' in h_lower or 'item' in h_lower:
-                widths.append(2.5 * inch)  # Description - widest
-            elif 'qty' in h_lower or 'unit' in h_lower:
-                widths.append(0.7 * inch)  # Quantity/Unit - narrow
+                widths.append(1.0 * inch)  # Image column - adequate for small images
+            elif 'descript' in h_lower or 'discript' in h_lower or 'item' in h_lower:
+                widths.append(3.5 * inch)  # Description - much wider for long text
+            elif 'qty' in h_lower or 'quantity' in h_lower:
+                widths.append(0.5 * inch)  # Quantity - narrow
+            elif 'unit' in h_lower and 'rate' not in h_lower and 'price' not in h_lower:
+                widths.append(0.5 * inch)  # Unit - narrow
             elif 'rate' in h_lower or 'price' in h_lower:
-                widths.append(1.0 * inch)  # Rate - medium
+                widths.append(0.8 * inch)  # Rate - compact
             elif 'amount' in h_lower or 'total' in h_lower:
-                widths.append(1.1 * inch)  # Total - medium
+                widths.append(0.9 * inch)  # Total - compact
             else:
-                widths.append(1.0 * inch)  # Default
+                widths.append(0.8 * inch)  # Default - compact
         
         # Normalize to fit total width
+        current_total = sum(widths)
+        if current_total > total_width:
+            scale_factor = total_width / current_total
+            widths = [w * scale_factor for w in widths]
         current_total = sum(widths)
         if current_total > total_width:
             scale_factor = total_width / current_total

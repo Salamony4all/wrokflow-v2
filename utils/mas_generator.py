@@ -62,22 +62,22 @@ class MASGenerator:
         gold = colors.HexColor('#d4af37')
         dark = colors.HexColor('#1a365d')
 
-        # Header gold line - moved higher for better spacing
-        canv.setStrokeColor(gold)
-        canv.setLineWidth(2)
-        canv.line(doc.leftMargin, page_height - 40, page_width - doc.rightMargin, page_height - 40)
-
-        # Logo centered in header - larger and more visible
+        # Logo centered in header with proper spacing
         logo_path = self._get_logo_path()
         if logo_path and os.path.exists(logo_path):
             try:
-                w = 120
-                h = 43  # Maintain aspect ratio
+                w = 140  # Increased width
+                h = 50   # Increased height for full logo visibility
                 x = (page_width - w) / 2  # Center horizontally
-                y = page_height - 38  # Just below top margin
+                y = page_height - 60  # More space from top
                 canv.drawImage(logo_path, x, y, width=w, height=h, preserveAspectRatio=True, mask='auto')
             except Exception:
                 pass
+
+        # Header gold line - positioned below the logo with proper spacing
+        canv.setStrokeColor(gold)
+        canv.setLineWidth(2)
+        canv.line(doc.leftMargin, page_height - 70, page_width - doc.rightMargin, page_height - 70)
 
         # Footer with gold line and website centered
         canv.setStrokeColor(gold)
@@ -165,7 +165,9 @@ class MASGenerator:
                 
                 # Iterate through row dictionary items
                 for header, cell_value in row.items():
-                    header_lower = header.lower()
+                    # Ensure header is a string
+                    header_str = str(header) if header else ''
+                    header_lower = header_str.lower()
                     cell_value = str(cell_value) if cell_value else ''
                     
                     # Check for image in cell
@@ -175,7 +177,7 @@ class MASGenerator:
                             image_path = img_path
                     
                     # Extract data based on header
-                    if any(h in header_lower for h in ['description', 'item', 'product']):
+                    if any(h in header_lower for h in ['descript', 'discript', 'item', 'product']):  # Handle misspelling
                         description = re.sub(r'<[^>]+>', '', cell_value)
                     elif 'qty' in header_lower or 'quantity' in header_lower:
                         qty = re.sub(r'<[^>]+>', '', cell_value)
@@ -263,25 +265,28 @@ class MASGenerator:
             image_path = None
             
             for header, cell_value in row_data.items():
+                # Ensure header is a string
+                header_str = str(header).lower() if header else ''
+                
                 # Check for images
-                if '<img' in cell_value:
-                    img_path = self.extract_image_path(cell_value, session_id, file_id)
+                if '<img' in str(cell_value):
+                    img_path = self.extract_image_path(str(cell_value), session_id, file_id)
                     if img_path:
                         image_path = img_path
                 
                 # Clean text
-                cell_text = re.sub(r'<[^>]+>', '', cell_value).strip()
+                cell_text = re.sub(r'<[^>]+>', '', str(cell_value)).strip()
                 
                 # Map to fields
-                if any(h in header for h in ['description', 'item', 'product']):
+                if any(h in header_str for h in ['descript', 'discript', 'item', 'product']):  # Handle misspelling
                     description = cell_text
-                elif 'qty' in header or 'quantity' in header:
+                elif 'qty' in header_str or 'quantity' in header_str:
                     qty = cell_text
-                elif 'unit' in header and 'rate' not in header:
+                elif 'unit' in header_str and 'rate' not in header_str:
                     unit = cell_text
-                elif 'unit rate' in header or 'rate' in header:
+                elif 'unit rate' in header_str or 'rate' in header_str:
                     unit_rate = cell_text
-                elif 'total' in header or 'amount' in header:
+                elif 'total' in header_str or 'amount' in header_str:
                     total = cell_text
             
             if description:
@@ -328,7 +333,11 @@ class MASGenerator:
                 image_path = None
                 if images:
                     first_img = list(images.values())[0]
-                    image_path = os.path.join('outputs', session_id, file_id, first_img)
+                    # Ensure first_img is a string, not a list
+                    if isinstance(first_img, (list, tuple)):
+                        first_img = first_img[0] if first_img else ''
+                    if isinstance(first_img, str) and first_img:
+                        image_path = os.path.join('outputs', session_id, file_id, first_img)
                 
                 item = {
                     'description': description,
@@ -544,13 +553,20 @@ class MASGenerator:
             if src.startswith('outputs/'):
                 return src
             
-            # Handle relative path
-            full_path = f'outputs/{session_id}/{file_id}/{src}'
+            # Handle relative path - ensure all parts are strings
+            if isinstance(session_id, (list, tuple)):
+                session_id = session_id[0] if session_id else ''
+            if isinstance(file_id, (list, tuple)):
+                file_id = file_id[0] if file_id else ''
+            if isinstance(src, (list, tuple)):
+                src = src[0] if src else ''
+            
+            full_path = os.path.join('outputs', str(session_id), str(file_id), str(src))
             if os.path.exists(full_path):
                 return full_path
             # Also check if src exists as-is
-            if os.path.exists(src):
-                return src
+            if os.path.exists(str(src)):
+                return str(src)
             return full_path  # Return even if doesn't exist yet, let download logic handle it
         return None
     

@@ -14,6 +14,7 @@ import time
 from threading import Thread
 import threading
 import uuid as uuid_module
+from utils.excel_processor import process_excel_file
 
 app = Flask(__name__)
 
@@ -25,6 +26,8 @@ app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['OUTPUT_FOLDER'] = 'outputs'
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max file size
 app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SESSION_PERMANENT'] = True
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=4)  # Session lasts 4 hours
 Session(app)
 
 # Basic logging - configure to log to both file and console
@@ -69,6 +72,7 @@ def cleanup_old_files(hours=24):
     """Clean up files and directories older than specified hours"""
     cutoff_time = time.time() - (hours * 3600)
     cleaned = {'uploads': 0, 'outputs': 0, 'sessions': 0}
+    logger.info(f"Starting cleanup of files older than {hours} hours")
     
     # Clean old upload directories
     for session_dir in os.listdir(app.config['UPLOAD_FOLDER']):
@@ -238,6 +242,102 @@ def fix_session_page():
     """Serve the session fix page"""
     return send_file('fix_session.html')
 
+@app.route('/api/session-files', methods=['GET'])
+def get_session_files():
+    """Get list of files in current session"""
+    try:
+        uploaded_files = session.get('uploaded_files', [])
+        session_id = session.get('session_id', 'none')
+        
+        # Return minimal file info for UI sync
+        files_info = [{
+            'id': f.get('id'),
+            'name': f.get('original_name', 'Unknown'),
+            'status': f.get('status', 'unknown'),
+            'upload_time': f.get('upload_time', '')
+        } for f in uploaded_files]
+        
+        logger.info(f"Session files request - Session: {session_id}, Files: {len(files_info)}")
+        
+        return jsonify({
+            'success': True,
+            'session_id': session_id,
+            'files': files_info,
+            'count': len(files_info)
+        })
+    except Exception as e:
+        logger.exception("Error getting session files")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/debug/session')
+def debug_session():
+    """Debug page to show current session state"""
+    try:
+        uploaded_files = session.get('uploaded_files', [])
+        session_id = session.get('session_id', 'No session ID')
+        
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Session Debug</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }}
+                .container {{ max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+                h1 {{ color: #333; }}
+                .info {{ background: #e3f2fd; padding: 15px; border-radius: 4px; margin: 10px 0; }}
+                .file {{ background: #f5f5f5; padding: 10px; margin: 10px 0; border-left: 3px solid #4CAF50; }}
+                .empty {{ background: #fff3cd; padding: 15px; border-left: 3px solid #ffc107; color: #856404; }}
+                code {{ background: #f4f4f4; padding: 2px 6px; border-radius: 3px; }}
+                .btn {{ display: inline-block; padding: 10px 20px; background: #2196F3; color: white; text-decoration: none; border-radius: 4px; margin: 10px 5px 10px 0; }}
+                .btn:hover {{ background: #0b7dda; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>🔍 Session Debug Information</h1>
+                
+                <div class="info">
+                    <strong>Session ID:</strong> <code>{session_id}</code>
+                </div>
+                
+                <h2>Uploaded Files ({len(uploaded_files)})</h2>
+        """
+        
+        if uploaded_files:
+            for idx, f in enumerate(uploaded_files):
+                html += f"""
+                <div class="file">
+                    <strong>File #{idx + 1}</strong><br>
+                    <strong>ID:</strong> <code>{f.get('id', 'N/A')}</code><br>
+                    <strong>Name:</strong> {f.get('original_name', 'N/A')}<br>
+                    <strong>Status:</strong> {f.get('status', 'N/A')}<br>
+                    <strong>Upload Time:</strong> {f.get('upload_time', 'N/A')}<br>
+                    <strong>Has Extraction:</strong> {'Yes' if 'extraction_result' in f else 'No'}
+                </div>
+                """
+        else:
+            html += '<div class="empty">⚠️ No files in session. Please upload a file.</div>'
+        
+        html += """
+                <h2>Actions</h2>
+                <a href="/" class="btn">Go to Main App</a>
+                <a href="/debug/session" class="btn" onclick="location.reload(); return false;">Refresh</a>
+                <a href="/cleanup" class="btn" onclick="if(confirm('Clear all files?')) {{ fetch('/cleanup', {{method: 'POST'}}).then(() => location.reload()); }} return false;">Clear Session</a>
+                
+                <p style="margin-top: 30px; color: #666; font-size: 0.9em;">
+                    <strong>Tip:</strong> If you see files here but they don't appear in the main app, 
+                    go back to the main app and refresh the page (Ctrl+F5).
+                </p>
+            </div>
+        </body>
+        </html>
+        """
+        
+        return html
+    except Exception as e:
+        return f"<h1>Error</h1><pre>{str(e)}</pre>", 500
+
 @app.route('/landing')
 def landing():
     """Modern landing page"""
@@ -256,14 +356,14 @@ def main_app():
     except Exception as e:
         logger.error(f"Error in page load cleanup: {e}")
     
-    return render_template('index.html')
+    return render_template('index.html', now=int(time.time()))
 
 @app.route('/')
 def index():
     """Home page - show landing page by default"""
     # Check if user wants to go directly to app
     if request.args.get('workflow') or request.args.get('app'):
-        return render_template('index.html')
+        return render_template('index.html', now=int(time.time()))
     # Otherwise show landing page
     return render_template('landing.html')
 
@@ -340,168 +440,365 @@ def upload_and_extract():
             except:
                 pass
         
+        # Get extraction method from settings (default to pdfplumber for backward compatibility)
+        extraction_method = extraction_settings.get('extractionMethod', 'pdfplumber')
+        logger.info(f"Extraction method selected: {extraction_method}")
+        
         # Add to uploaded files list
         uploaded_files = session.get('uploaded_files', [])
         
-        # Check for duplicate uploads (same filename within last 5 seconds)
+        # Check for duplicate uploads (same filename within last 10 seconds)
         current_time = datetime.now()
         is_duplicate = False
-        for existing_file in uploaded_files:
+        existing_file_index = -1
+        for idx, existing_file in enumerate(uploaded_files):
             if existing_file.get('original_name') == filename:
                 upload_time_str = existing_file.get('upload_time', '')
                 try:
                     upload_time = datetime.fromisoformat(upload_time_str)
                     time_diff = (current_time - upload_time).total_seconds()
-                    if time_diff < 5:  # Within 5 seconds
+                    if time_diff < 10:  # Within 10 seconds
                         is_duplicate = True
-                        file_info = existing_file  # Reuse existing file info
-                        logger.warning(f"Duplicate upload detected for {filename}, reusing file_id: {file_info['id']}")
+                        existing_file_index = idx
+                        logger.warning(f"Duplicate upload detected for {filename} within {time_diff:.1f}s, removing old file and creating new one")
                         break
                 except:
                     pass
         
-        if not is_duplicate:
-            file_info = {
-                'id': str(uuid.uuid4()),
-                'original_name': filename,
-                'unique_name': unique_filename,
-                'filepath': filepath,
-                'upload_time': datetime.now().isoformat(),
-                'status': 'uploaded'
-            }
-            uploaded_files.append(file_info)
-            session['uploaded_files'] = uploaded_files
-            session.modified = True
-            logger.info(f"File uploaded: {filename}, Session ID: {session_id}, Total files in session: {len(uploaded_files)}")
-        else:
-            logger.info(f"Duplicate upload handled for: {filename}, Session ID: {session_id}")
+        # If duplicate found, remove the old one to avoid confusion
+        if is_duplicate and existing_file_index >= 0:
+            old_file = uploaded_files.pop(existing_file_index)
+            logger.info(f"Removed old duplicate file_id: {old_file['id']}")
         
-        # Automatically extract the file
+        # Always create new file info for each upload
+        file_info = {
+            'id': str(uuid.uuid4()),
+            'original_name': filename,
+            'unique_name': unique_filename,
+            'filepath': filepath,
+            'upload_time': datetime.now().isoformat(),
+            'status': 'uploaded'
+        }
+        uploaded_files.append(file_info)
+        session['uploaded_files'] = uploaded_files
+        session.modified = True
+        logger.info(f"File uploaded: {filename}, file_id: {file_info['id']}, Session ID: {session_id}, Total files: {len(uploaded_files)}")
+        
+        # Automatically extract the file using selected method (PP-Structure API or pdfplumber) or Excel processor
         extraction_result = None
         extraction_error = None
         try:
-            logger.info(f"Starting automatic extraction for file: {filename}")
-            
-            # Read file and encode to base64
-            file_size = os.path.getsize(filepath)
-            with open(filepath, 'rb') as f:
-                file_bytes = f.read()
-                file_data = base64.b64encode(file_bytes).decode('ascii')
+            logger.info(f"Starting automatic extraction for file: {filename}, file_id: {file_info['id']} using {extraction_method}")
             
             # Determine file type
             file_extension = filename.rsplit('.', 1)[1].lower()
-            file_type = 0 if file_extension == 'pdf' else 1
             
-            headers = {
-                "Authorization": f"token {TOKEN}",
-                "Content-Type": "application/json"
-            }
-            
-            # Use extraction settings from form or defaults
-            payload = {
-                "file": file_data,
-                "fileType": file_type,
-                "useDocPreprocessor": extraction_settings.get("useDocPreprocessor", False),
-                "useSealRecognition": extraction_settings.get("useSealRecognition", True),
-                "useTableRecognition": extraction_settings.get("useTableRecognition", True),
-                "useFormulaRecognition": extraction_settings.get("useFormulaRecognition", True),
-                "useChartRecognition": extraction_settings.get("useChartRecognition", True),
-                "useRegionDetection": extraction_settings.get("useRegionDetection", True),
-                "formatBlockContent": extraction_settings.get("formatBlockContent", True),
-                "useTextlineOrientation": extraction_settings.get("useTextlineOrientation", False),
-                "useDocOrientationClassify": extraction_settings.get("useDocOrientationClassify", False),
-                "useDocUnwarping": extraction_settings.get("useDocUnwarping", False),
-                "visualize": extraction_settings.get("visualize", False)
-            }
-            
-            # Add optional settings only if they are provided (not None)
-            optional_settings = [
-                "useWiredTableCellsTransToHtml", "useWirelessTableCellsTransToHtml",
-                "useTableOrientationClassify", "useOcrResultsWithTableCells",
-                "useE2eWiredTableRecModel", "useE2eWirelessTableRecModel",
-                "layoutThreshold", "layoutNms", "layoutUnclipRatio", "layoutMergeBboxesMode",
-                "textDetLimitSideLen", "textDetLimitType", "textDetThresh",
-                "textDetBoxThresh", "textDetUnclipRatio", "textRecScoreThresh",
-                "sealDetLimitSideLen", "sealDetLimitType", "sealDetThresh",
-                "sealDetBoxThresh", "sealDetUnclipRatio", "sealRecScoreThresh"
-            ]
-            
-            for setting in optional_settings:
-                value = extraction_settings.get(setting)
-                if value is not None:
-                    payload[setting] = value
-            
-            # Call extraction API - increased timeout for large files
-            timeout = 300 if file_size > 5 * 1024 * 1024 else 180  # 5 min for >5MB, 3 min for smaller
-            response = requests.post(API_URL, json=payload, headers=headers, timeout=timeout)
-            logger.info(f'API request sent with timeout: {timeout}s for file size: {file_size / (1024*1024):.2f}MB')
-            response.raise_for_status()
-            api_response = response.json()
-            
-            # Extract the result - API might wrap it in 'result' key
-            if 'result' in api_response:
-                extraction_result = api_response['result']
-            else:
-                extraction_result = api_response
-            
-            logger.info(f"Extraction result structure - keys: {list(extraction_result.keys()) if isinstance(extraction_result, dict) else 'Not a dict'}")
-            
-            # Download and save images from API response (same as regular extract endpoint)
+            # Setup output directory
             session_id = session['session_id']
             output_dir = os.path.join(app.config['OUTPUT_FOLDER'], session_id, file_info['id'])
             images_dir = os.path.join(output_dir, 'imgs')
             os.makedirs(output_dir, exist_ok=True)
             os.makedirs(images_dir, exist_ok=True)
             
-            # Process images from extraction result
-            for i, res in enumerate(extraction_result.get("layoutParsingResults", [])):
-                # Check for images in markdown
-                markdown_data = res.get("markdown", {})
-                markdown_text = markdown_data.get("text", "")
-                images_dict = markdown_data.get("images", {})
+            # Handle Excel files differently
+            if file_extension in ['xls', 'xlsx']:
+                logger.info(f"Processing Excel file: {filename}")
                 
-                # Download images and replace URLs with local paths
-                for img_path, img_url in images_dict.items():
-                    try:
-                        img_response = requests.get(img_url, timeout=30)
-                        if img_response.status_code == 200:
-                            # Save image locally
-                            local_img_path = os.path.join(images_dir, os.path.basename(img_path))
-                            with open(local_img_path, 'wb') as img_file:
-                                img_file.write(img_response.content)
-                            
-                            # Create URL-safe path for serving
-                            relative_img_path = f"imgs/{os.path.basename(img_path)}"
-                            local_url = url_for('serve_output', session_id=session_id, filename=f"{file_info['id']}/{relative_img_path}")
-                            
-                            # Replace remote URL with local URL in markdown
-                            markdown_text = markdown_text.replace(img_path, local_url)
-                            
-                            logger.info(f'Downloaded image: {img_path} -> {local_img_path}')
-                        else:
-                            logger.warning(f'Failed to download image {img_url}: HTTP {img_response.status_code}')
-                    except requests.exceptions.Timeout:
-                        logger.warning(f'Image download timeout for {img_url}')
-                    except requests.exceptions.ConnectionError:
-                        logger.warning(f'Image download connection error for {img_url}')
-                    except Exception as e:
-                            logger.warning(f'Error downloading image {img_url}: {e}')
+                # Process Excel file with output directory for images
+                excel_result = process_excel_file(filepath, output_dir=output_dir, session_id=session_id, file_id=file_info['id'])
                 
-                # Also update block_content in prunedResult if it exists
-                pruned_result = res.get("prunedResult", {})
-                parsing_res_list = pruned_result.get("parsing_res_list", [])
-                for block in parsing_res_list:
-                    if block.get("block_content"):
-                        block_content = block["block_content"]
-                        # Replace image paths in block content
-                        for img_path, img_url in images_dict.items():
-                            relative_img_path = f"imgs/{os.path.basename(img_path)}"
-                            local_url = url_for('serve_output', session_id=session_id, filename=f"{file_info['id']}/{relative_img_path}")
-                            block_content = block_content.replace(img_path, local_url)
-                        block["block_content"] = block_content
+                if not excel_result['success']:
+                    raise Exception(excel_result.get('error', 'Excel processing failed'))
                 
-                # Update the markdown text with local image URLs
-                res['markdown']['text'] = markdown_text
+                # Convert Excel result to extraction_result format
+                sheets_data = excel_result['sheets']
+                
+                # Create layoutParsingResults-like structure for compatibility
+                layoutParsingResults = []
+                
+                for sheet_name, sheet_data in sheets_data.items():
+                    # Save markdown for this sheet
+                    md_filename = os.path.join(output_dir, f"{sheet_name.replace(' ', '_')}.md")
+                    
+                    markdown_content = f"# {sheet_name}\n\n"
+                    if 'error' in sheet_data:
+                        markdown_content += f"**Error:** {sheet_data['error']}\n\n"
+                    else:
+                        markdown_content += f"**Rows:** {sheet_data['shape'][0]}  \n"
+                        markdown_content += f"**Columns:** {sheet_data['shape'][1]}  \n"
+                        markdown_content += f"**Images:** {sheet_data.get('image_count', 0)}  \n\n"
+                        if sheet_data.get('markdown'):
+                            markdown_content += sheet_data['markdown']
+                    
+                    with open(md_filename, 'w', encoding='utf-8') as f:
+                        f.write(markdown_content)
+                    
+                    # Add to layoutParsingResults
+                    layoutParsingResults.append({
+                        'sheet_name': sheet_name,
+                        'markdown': {
+                            'text': markdown_content,
+                            'images': sheet_data.get('images', {})
+                        },
+                        'html': sheet_data.get('html', ''),
+                        'shape': sheet_data.get('shape', [0, 0]),
+                        'image_count': sheet_data.get('image_count', 0)
+                    })
+                
+                # Create extraction result
+                extraction_result = {
+                    'layoutParsingResults': layoutParsingResults,
+                    'file_type': 'excel',
+                    'sheet_count': excel_result['sheet_count'],
+                    'file_info': excel_result['file_info'],
+                    'image_count': excel_result.get('image_count', 0)
+                }
+                
+                logger.info(f"Excel extraction completed for file: {filename} with {excel_result.get('image_count', 0)} images")
+            else:
+                # Check if we should use PP-Structure API or pdfplumber
+                if extraction_method == 'pp-structure':
+                    # Use PP-Structure API for extraction
+                    logger.info(f"Using PP-Structure API for extraction")
+                    
+                    # Call the extract API endpoint internally
+                    # Read file and encode to base64
+                    with open(filepath, 'rb') as file:
+                        file_bytes = file.read()
+                        file_data = base64.b64encode(file_bytes).decode('ascii')
+                    
+                    # Determine file type
+                    file_type = 0 if file_extension == 'pdf' else 1
+                    
+                    headers = {
+                        "Authorization": f"token {TOKEN}",
+                        "Content-Type": "application/json"
+                    }
+                    
+                    # Build payload with extraction settings
+                    payload = {
+                        "file": file_data,
+                        "fileType": file_type,
+                        "useDocPreprocessor": extraction_settings.get("useDocPreprocessor", False),
+                        "useSealRecognition": extraction_settings.get("useSealRecognition", True),
+                        "useTableRecognition": extraction_settings.get("useTableRecognition", True),
+                        "useFormulaRecognition": extraction_settings.get("useFormulaRecognition", True),
+                        "useChartRecognition": extraction_settings.get("useChartRecognition", True),
+                        "useRegionDetection": extraction_settings.get("useRegionDetection", True),
+                        "formatBlockContent": extraction_settings.get("formatBlockContent", True),
+                        "useTextlineOrientation": extraction_settings.get("useTextlineOrientation", False),
+                        "useDocOrientationClassify": extraction_settings.get("useDocOrientationClassify", False),
+                        "useDocUnwarping": extraction_settings.get("useDocUnwarping", False),
+                        "visualize": extraction_settings.get("visualize", True)
+                    }
+                    
+                    # Add optional settings only if they are provided (not None)
+                    optional_settings = [
+                        "useWiredTableCellsTransToHtml", "useWirelessTableCellsTransToHtml",
+                        "useTableOrientationClassify", "useOcrResultsWithTableCells",
+                        "useE2eWiredTableRecModel", "useE2eWirelessTableRecModel",
+                        "layoutThreshold", "layoutNms", "layoutUnclipRatio", "layoutMergeBboxesMode",
+                        "textDetLimitSideLen", "textDetLimitType", "textDetThresh",
+                        "textDetBoxThresh", "textDetUnclipRatio", "textRecScoreThresh",
+                        "sealDetLimitSideLen", "sealDetLimitType", "sealDetThresh",
+                        "sealDetBoxThresh", "sealDetUnclipRatio", "sealRecScoreThresh"
+                    ]
+                    
+                    for setting in optional_settings:
+                        value = extraction_settings.get(setting)
+                        if value is not None:
+                            payload[setting] = value
+                    
+                    logger.info(f'PP-Structure API extraction settings: {json.dumps({k: v for k, v in payload.items() if k != "file"}, indent=2)}')
+                    
+                    # Call API with retry logic
+                    max_retries = 3
+                    retry_delay = 2
+                    last_error = None
+                    
+                    for attempt in range(max_retries):
+                        try:
+                            # Set timeout based on file size - increased for API processing time
+                            file_size = os.path.getsize(filepath)
+                            if file_size > 15 * 1024 * 1024:
+                                timeout = 900  # 15 minutes for very large files
+                            elif file_size > 10 * 1024 * 1024:
+                                timeout = 720  # 12 minutes
+                            elif file_size > 5 * 1024 * 1024:
+                                timeout = 600  # 10 minutes
+                            else:
+                                timeout = 480  # 8 minutes for smaller files
+                            
+                            logger.info(f'Calling PP-Structure API (attempt {attempt + 1}/{max_retries}, timeout: {timeout}s)...')
+                            
+                            response = requests.post(
+                                API_URL, 
+                                json=payload, 
+                                headers=headers, 
+                                timeout=timeout,
+                                stream=False
+                            )
+                            
+                            # If we get a response, break out of retry loop
+                            break
+                            
+                        except requests.exceptions.Timeout:
+                            if attempt < max_retries - 1:
+                                wait_time = retry_delay * (2 ** attempt)
+                                logger.warning(f'Request timeout. Retrying in {wait_time} seconds... (attempt {attempt + 1}/{max_retries})')
+                                time.sleep(wait_time)
+                                continue
+                            else:
+                                raise
+                        except requests.exceptions.ConnectionError as ce:
+                            last_error = ce
+                            error_str = str(ce)
+                            if 'ConnectionResetError' in error_str or 'forcibly closed' in error_str or '10054' in error_str:
+                                if attempt < max_retries - 1:
+                                    wait_time = retry_delay * (2 ** attempt)
+                                    logger.warning(f'Connection reset by server. Retrying in {wait_time} seconds... (attempt {attempt + 1}/{max_retries})')
+                                    time.sleep(wait_time)
+                                    continue
+                                else:
+                                    raise
+                            else:
+                                raise
+                    
+                    # Check if we have a response
+                    if 'response' not in locals() or response is None:
+                        raise Exception('No response received from PP-Structure API after retries')
+                    
+                    # Process API response
+                    logger.info(f'PP-Structure API response status: {response.status_code}')
+                    
+                    if response.status_code == 200:
+                        result = response.json().get("result")
+                        
+                        # Download and save images from API response
+                        for i, res in enumerate(result.get("layoutParsingResults", [])):
+                            # Save markdown
+                            md_filename = os.path.join(output_dir, f"doc_{i}.md")
+                            
+                            # Check for images in markdown
+                            markdown_data = res.get("markdown", {})
+                            markdown_text = markdown_data.get("text", "")
+                            images_dict = markdown_data.get("images", {})
+                            
+                            # Track successfully downloaded images for this page
+                            page_downloaded_images = {}
+                            
+                            if images_dict:
+                                logger.info(f"Page {i} has {len(images_dict)} images to download")
+                                # Download images
+                                for img_path, img_url in images_dict.items():
+                                    # Retry logic for image downloads
+                                    max_img_retries = 3
+                                    download_success = False
+                                    
+                                    for img_attempt in range(max_img_retries):
+                                        try:
+                                            logger.info(f'Downloading image (attempt {img_attempt + 1}/{max_img_retries}): {img_url}')
+                                            img_response = requests.get(img_url, timeout=60, stream=True)
+                                            
+                                            if img_response.status_code == 200:
+                                                # Save image locally
+                                                local_img_path = os.path.join(images_dir, os.path.basename(img_path))
+                                                with open(local_img_path, 'wb') as img_file:
+                                                    # Write in chunks to handle large images
+                                                    for chunk in img_response.iter_content(chunk_size=8192):
+                                                        if chunk:
+                                                            img_file.write(chunk)
+                                                
+                                                # Verify file was saved
+                                                if os.path.exists(local_img_path) and os.path.getsize(local_img_path) > 0:
+                                                    # Create URL-safe path for serving
+                                                    relative_img_path = f"imgs/{os.path.basename(img_path)}"
+                                                    local_url = url_for('serve_output', session_id=session_id, filename=f"{file_info['id']}/{relative_img_path}")
+                                                    
+                                                    # Track successful download
+                                                    page_downloaded_images[img_path] = local_url
+                                                    
+                                                    # Replace remote URL with local URL in markdown
+                                                    markdown_text = markdown_text.replace(img_path, local_url)
+                                                    
+                                                    logger.info(f'✓ Downloaded image: {img_path} -> {local_img_path} ({os.path.getsize(local_img_path)} bytes)')
+                                                    download_success = True
+                                                    break
+                                                else:
+                                                    logger.warning(f'Image file is empty or not saved: {local_img_path}')
+                                            else:
+                                                logger.warning(f'Failed to download image {img_url}: HTTP {img_response.status_code}')
+                                                if img_attempt < max_img_retries - 1:
+                                                    time.sleep(1)
+                                                    continue
+                                        except requests.exceptions.Timeout:
+                                            logger.warning(f'Image download timeout for {img_url} (attempt {img_attempt + 1}/{max_img_retries})')
+                                            if img_attempt < max_img_retries - 1:
+                                                time.sleep(2)
+                                                continue
+                                        except Exception as e:
+                                            logger.error(f'Failed to download image {img_url}: {str(e)}')
+                                            if img_attempt < max_img_retries - 1:
+                                                time.sleep(1)
+                                                continue
+                                    
+                                    if not download_success:
+                                        logger.error(f'Failed to download image after {max_img_retries} attempts: {img_url}')
+                            
+                            # Update markdown with local image paths
+                            res["markdown"]["text"] = markdown_text
+                            res["markdown"]["images"] = page_downloaded_images
+                            
+                            # Save markdown to file
+                            with open(md_filename, 'w', encoding='utf-8') as f:
+                                f.write(markdown_text)
+                        
+                        # Store the result
+                        extraction_result = {
+                            'layoutParsingResults': result.get("layoutParsingResults", []),
+                            'file_type': 'pdf' if file_type == 0 else 'image',
+                            'extraction_method': 'pp-structure'
+                        }
+                        
+                        logger.info(f"PP-Structure API extraction completed for file: {filename}")
+                    else:
+                        # API error
+                        error_msg = f"PP-Structure API returned error {response.status_code}"
+                        logger.error(error_msg)
+                        raise Exception(error_msg)
+                else:
+                    # Use improved_table_extractor (pdfplumber) for PDF/images
+                    from utils.improved_table_extractor import ImprovedTableExtractor
+                    extractor = ImprovedTableExtractor()
+                    
+                    # Extract tables with images using pdfplumber
+                    extraction_result = extractor.extract_tables(
+                        file_path=filepath,
+                        file_extension=file_extension,
+                        output_dir=output_dir,
+                        bordered_method='pdfplumber',
+                        borderless_method='pdfplumber',
+                        ai_strategy='auto'
+                    )
+                    
+                    logger.info(f"pdfplumber extraction completed for file: {filename}")
+            
+            logger.info(f"Extraction completed using {extraction_method}")
+            logger.info(f"Extraction result structure - keys: {list(extraction_result.keys()) if isinstance(extraction_result, dict) else 'Not a dict'}")
+            
+            # Log image URLs for debugging
+            if 'layoutParsingResults' in extraction_result:
+                for page_idx, page_result in enumerate(extraction_result['layoutParsingResults']):
+                    markdown_data = page_result.get('markdown', {})
+                    if isinstance(markdown_data, dict):
+                        markdown_text = markdown_data.get('text', '')
+                        # Count image tags
+                        import re
+                        img_tags = re.findall(r'<img[^>]+src="([^"]+)"', markdown_text)
+                        if img_tags:
+                            logger.info(f"Page {page_idx + 1}: Found {len(img_tags)} image(s)")
+                            for img_url in img_tags[:3]:  # Log first 3 images
+                                logger.info(f"  Using local image: {img_url.replace('/outputs/' + session_id + '/' + file_info['id'] + '/', '')} -> {img_url}")
             
             # Store output directory for later use
             file_info['output_dir'] = output_dir
@@ -779,9 +1076,110 @@ def serve_output(session_id, filename):
     rel_file = os.path.basename(filename)
     return send_from_directory(os.path.join(app.config['OUTPUT_FOLDER'], session_id, rel_dir), rel_file)
 
+def handle_excel_extraction(file_id, file_info):
+    """
+    Handle Excel file extraction using excel_processor
+    
+    Args:
+        file_id: Unique file identifier
+        file_info: File information dictionary
+        
+    Returns:
+        JSON response with extraction results
+    """
+    try:
+        # Create output directory first
+        session_id = session['session_id']
+        output_dir = os.path.join(app.config['OUTPUT_FOLDER'], session_id, file_id)
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Create imgs subdirectory for extracted images
+        imgs_dir = os.path.join(output_dir, 'imgs')
+        os.makedirs(imgs_dir, exist_ok=True)
+        
+        # Process Excel file with image extraction
+        result = process_excel_file(file_info['filepath'], output_dir=output_dir, session_id=session_id, file_id=file_id)
+        
+        if not result['success']:
+            logger.error(f"Excel processing failed: {result.get('error')}")
+            return jsonify({
+                'error': 'Excel processing failed',
+                'message': result.get('error'),
+                'filepath': file_info['filepath']
+            }), 500
+        
+        # Generate markdown for each sheet
+        sheets_data = result['sheets']
+        markdown_files = []
+        
+        for sheet_name, sheet_data in sheets_data.items():
+            # Create markdown file for this sheet
+            md_filename = os.path.join(output_dir, f"{sheet_name.replace(' ', '_')}.md")
+            
+            markdown_content = f"# {sheet_name}\n\n"
+            
+            if 'error' in sheet_data:
+                markdown_content += f"**Error:** {sheet_data['error']}\n\n"
+            else:
+                # Add sheet info
+                markdown_content += f"**Rows:** {sheet_data['shape'][0]}  \n"
+                markdown_content += f"**Columns:** {sheet_data['shape'][1]}  \n"
+                markdown_content += f"**Images:** {sheet_data.get('image_count', 0)}  \n\n"
+                
+                # Add the table in markdown format
+                if sheet_data.get('markdown'):
+                    markdown_content += sheet_data['markdown']
+            
+            # Save markdown file
+            with open(md_filename, 'w', encoding='utf-8') as f:
+                f.write(markdown_content)
+            
+            markdown_files.append({
+                'sheet_name': sheet_name,
+                'filename': os.path.basename(md_filename),
+                'path': md_filename
+            })
+        
+        # Save complete JSON result
+        json_filename = os.path.join(output_dir, 'extraction_result.json')
+        with open(json_filename, 'w', encoding='utf-8') as f:
+            json.dump(result, f, indent=2, default=str)
+        
+        # Update file status in session
+        file_info['status'] = 'extracted'
+        file_info['extracted_data'] = {
+            'sheet_count': result['sheet_count'],
+            'sheets': list(sheets_data.keys()),
+            'markdown_files': markdown_files,
+            'file_info': result['file_info'],
+            'image_count': result.get('image_count', 0)
+        }
+        session.modified = True
+        
+        # Return response in format compatible with frontend
+        return jsonify({
+            'success': True,
+            'file_type': 'excel',
+            'sheet_count': result['sheet_count'],
+            'sheets': sheets_data,
+            'file_info': result['file_info'],
+            'markdown_files': markdown_files,
+            'image_count': result.get('image_count', 0),
+            'message': result['message'],
+            'extraction_type': 'Excel Direct Read'
+        })
+        
+    except Exception as e:
+        logger.exception(f'Error in Excel extraction: {e}')
+        return jsonify({
+            'error': 'Excel extraction failed',
+            'message': str(e),
+            'filepath': file_info['filepath']
+        }), 500
+
 @app.route('/extract/<file_id>', methods=['POST'])
 def extract_table(file_id):
-    """Extract table using PP-StructureV3 API"""
+    """Extract table using PP-StructureV3 API or Excel processor"""
     logger.info(f'Extract request received for file_id: {file_id}')
     
     try:
@@ -805,6 +1203,15 @@ def extract_table(file_id):
         
         logger.info(f'Starting extraction for file: {file_info["original_name"]} at {file_info["filepath"]}')
         
+        # Determine file extension
+        file_extension = file_info['original_name'].rsplit('.', 1)[1].lower()
+        
+        # Handle Excel files differently
+        if file_extension in ['xls', 'xlsx']:
+            logger.info(f'Processing Excel file: {file_info["original_name"]}')
+            return handle_excel_extraction(file_id, file_info)
+        
+        # For PDF and image files, continue with PP-StructureV3 API
         # Read file and encode to base64
         file_size = os.path.getsize(file_info['filepath'])
         file_size_mb = file_size / (1024 * 1024)
@@ -878,15 +1285,15 @@ def extract_table(file_id):
         
         for attempt in range(max_retries):
             try:
-                # Increase timeout significantly for large files
+                # Increase timeout significantly for large files - give API enough time
                 if file_size > 15 * 1024 * 1024:  # > 15MB
-                    timeout = 360  # 6 minutes
+                    timeout = 900  # 15 minutes
                 elif file_size > 10 * 1024 * 1024:  # > 10MB
-                    timeout = 300  # 5 minutes
+                    timeout = 720  # 12 minutes
                 elif file_size > 5 * 1024 * 1024:  # > 5MB
-                    timeout = 240  # 4 minutes
+                    timeout = 600  # 10 minutes
                 else:
-                    timeout = 180  # 3 minutes for smaller files
+                    timeout = 480  # 8 minutes for smaller files
                 
                 logger.info(f'Using timeout: {timeout}s for file size: {file_size / (1024*1024):.2f}MB')
                 
@@ -1188,6 +1595,11 @@ def extract_table(file_id):
 @app.route('/stitch-tables/<file_id>', methods=['POST'])
 def stitch_tables(file_id):
     """Stitch tables from multiple pages, keeping only one header and removing duplicates"""
+    # Ensure session has an ID
+    if 'session_id' not in session:
+        session['session_id'] = str(uuid.uuid4())
+        session.modified = True
+    
     uploaded_files = session.get('uploaded_files', [])
     file_info = None
     
@@ -1205,13 +1617,21 @@ def stitch_tables(file_id):
     
     if not file_info:
         logger.error(f"File not found: {file_id}. Available IDs: {[f.get('id') for f in uploaded_files]}")
-        return jsonify({'error': 'File not found'}), 404
+        error_response = {
+            'error': 'File not found in session',
+            'details': 'The file may have been removed due to session expiration or cleanup. Please re-upload and extract the file.',
+            'available_files': [{'id': f.get('id'), 'name': f.get('name', 'Unknown')} for f in uploaded_files] if uploaded_files else []
+        }
+        return jsonify(error_response), 404
     
     if 'extraction_result' not in file_info:
         return jsonify({'error': 'Please extract the tables first'}), 400
     
     try:
         result = file_info['extraction_result']
+        
+        # Import re for pattern matching
+        import re
         
         # Log the structure we received for debugging
         logger.info(f"Extraction result type: {type(result)}")
@@ -1227,9 +1647,167 @@ def stitch_tables(file_id):
             if isinstance(result, dict):
                 logger.info(f"After unwrapping, keys: {list(result.keys())}")
         
-        # Try to get layoutParsingResults
+        # Try to get layoutParsingResults or tables data
         layout_parsing_results = []
+        extraction_method = result.get('extraction_method', 'unknown')
+        
+        logger.info(f"Extraction method: {extraction_method}")
+        
+        # Handle pdfplumber extraction format (tables, images, etc.)
+        if isinstance(result, dict) and 'tables' in result and extraction_method in ['pdfplumber', 'builtin']:
+            logger.info(f"Detected pdfplumber format with 'tables' key")
+            tables_data = result.get('tables', [])
+            
+            logger.info(f"Number of tables in extraction result: {len(tables_data)}")
+            
+            if not tables_data:
+                return jsonify({
+                    'error': 'No tables found to stitch',
+                    'details': 'The extraction found no tables in the document.',
+                    'hint': 'Make sure the PDF contains tables and try extracting again.'
+                }), 400
+            
+            # Convert pdfplumber tables to HTML format for stitching
+            all_tables = []
+            main_header = None
+            
+            for table_idx, table in enumerate(tables_data):
+                if not isinstance(table, dict):
+                    logger.warning(f'Table {table_idx} is not a dict: {type(table)}')
+                    continue
+                
+                logger.info(f'Table {table_idx} keys: {list(table.keys())}')
+                
+                # pdfplumber tables have 'headers' and 'rows', not 'html'
+                headers = table.get('headers', [])
+                rows = table.get('rows', [])
+                
+                if not headers or not rows:
+                    logger.warning(f'Table {table_idx} missing headers or rows')
+                    continue
+                
+                logger.info(f'Table {table_idx}: {len(headers)} columns, {len(rows)} rows')
+                
+                # Generate HTML from headers and rows
+                if main_header is None:
+                    # Create header row with <th> tags
+                    header_cells = ''.join([f'<th>{h}</th>' for h in headers])
+                    main_header = f'<tr>{header_cells}</tr>'
+                    logger.info(f'Set main header from table {table_idx}')
+                
+                # Create data rows with <td> tags
+                for row in rows:
+                    # Ensure row has same number of cells as headers
+                    while len(row) < len(headers):
+                        row.append('')
+                    
+                    row_cells = ''.join([f'<td>{cell}</td>' for cell in row])
+                    all_tables.append(f'<tr>{row_cells}</tr>')
+            
+            if not all_tables and not main_header:
+                return jsonify({
+                    'error': 'No table rows found',
+                    'details': 'Could not extract table rows from the extraction result.',
+                    'hint': 'The tables may be in an unexpected format. Try re-extracting the file.'
+                }), 400
+            
+            # Don't remove duplicates - preserve all rows as they come from extraction
+            # Each row should be unique based on its position in the table
+            # Duplicate detection was causing rows with images to be incorrectly removed
+            filtered_tables = all_tables
+            
+            # Create stitched HTML table
+            stitched_html = f'<table class="table table-bordered editable-table">{main_header}{"".join(filtered_tables)}</table>'
+            
+            # Store in session
+            stitched_filename = f"stitched_table_{file_id}.html"
+            if 'shared_tables' not in session:
+                session['shared_tables'] = {}
+            session['shared_tables']['stitched_table'] = {
+                'file_id': file_id,
+                'html': stitched_html,
+                'filepath': stitched_filename,
+                'row_count': len(filtered_tables),
+                'timestamp': datetime.now().isoformat()
+            }
+            
+            session.modified = True
+            
+            logger.info(f'Stitched {len(filtered_tables)} rows from {len(tables_data)} tables (pdfplumber format)')
+            
+            return jsonify({
+                'success': True,
+                'stitched_html': stitched_html,
+                'row_count': len(filtered_tables),
+                'table_count': len(tables_data),
+                'message': f'Successfully stitched {len(filtered_tables)} rows from {len(tables_data)} tables'
+            })
+        
+        # Handle API-based extraction format (layoutParsingResults)
         if isinstance(result, dict):
+            # Check if this is an Excel file - use HTML directly instead of parsing markdown
+            if result.get('file_type') == 'excel':
+                logger.info("Detected Excel file type - using HTML directly without markdown parsing")
+                layout_parsing_results = result.get('layoutParsingResults', [])
+                
+                if not layout_parsing_results:
+                    return jsonify({'error': 'No sheets found to stitch'}), 400
+                
+                # For Excel, use the HTML from each sheet directly
+                all_html_rows = []
+                main_header = None
+                
+                for sheet_idx, sheet_result in enumerate(layout_parsing_results):
+                    sheet_html = sheet_result.get('html', '')
+                    if sheet_html:
+                        # Extract rows from HTML table
+                        import re
+                        # Find all <tr> tags
+                        tr_pattern = r'<tr[^>]*>(.*?)</tr>'
+                        rows = re.findall(tr_pattern, sheet_html, re.DOTALL | re.IGNORECASE)
+                        
+                        if rows:
+                            logger.info(f"Sheet {sheet_idx + 1}: Found {len(rows)} rows in HTML")
+                            # First row is typically header
+                            if main_header is None and rows:
+                                main_header = f'<tr>{rows[0]}</tr>'
+                                all_html_rows.extend([f'<tr>{row}</tr>' for row in rows[1:]])
+                                logger.info(f"Set main header from sheet {sheet_idx + 1}, added {len(rows) - 1} data rows")
+                            else:
+                                # Skip header row in subsequent sheets
+                                all_html_rows.extend([f'<tr>{row}</tr>' for row in rows[1:]])
+                                logger.info(f"Added {len(rows) - 1} data rows from sheet {sheet_idx + 1}")
+                
+                if not main_header:
+                    return jsonify({'error': 'No table data found in Excel sheets'}), 400
+                
+                # Create stitched HTML table
+                stitched_html = f'<table class="table table-bordered editable-table">{main_header}{"".join(all_html_rows)}</table>'
+                
+                # Store in session
+                stitched_filename = f"stitched_table_{file_id}.html"
+                if 'shared_tables' not in session:
+                    session['shared_tables'] = {}
+                session['shared_tables']['stitched_table'] = {
+                    'file_id': file_id,
+                    'html': stitched_html,
+                    'filepath': stitched_filename,
+                    'row_count': len(all_html_rows),
+                    'timestamp': datetime.now().isoformat()
+                }
+                
+                session.modified = True
+                
+                logger.info(f'Stitched {len(all_html_rows)} Excel rows from {len(layout_parsing_results)} sheets using HTML')
+                
+                return jsonify({
+                    'success': True,
+                    'stitched_html': stitched_html,
+                    'row_count': len(all_html_rows),
+                    'table_count': len(layout_parsing_results),
+                    'message': f'Successfully stitched {len(all_html_rows)} rows from {len(layout_parsing_results)} sheet(s)'
+                })
+            
             layout_parsing_results = result.get('layoutParsingResults', [])
             # Also try alternative key names
             if not layout_parsing_results:
@@ -1598,6 +2176,38 @@ def is_header_row(row_html):
     header_keywords = ['si.no', 'item', 'description', 'qty', 'unit', 'rate', 'amount', 'price', 'total', 'image', 'ref']
     return any(keyword in row_text for keyword in header_keywords)
 
+@app.route('/apply-zero-costing/<file_id>', methods=['POST'])
+def apply_zero_costing(file_id):
+    """Apply zero costing factors to stitched table for direct document generation"""
+    try:
+        data = request.json
+        table_data = data.get('table_data')  # Get table data from DOM
+        
+        if not table_data:
+            return jsonify({'error': 'Table data is required'}), 400
+        
+        # Define zero factors (no markup/fees)
+        zero_factors = {
+            'net_margin': 0,
+            'freight': 0,
+            'customs': 0,
+            'installation': 0,
+            'exchange_rate': 1.0,
+            'additional': 0
+        }
+        
+        from utils.costing_engine import CostingEngine
+        engine = CostingEngine()
+        result = engine.apply_factors(file_id, zero_factors, session, table_data)
+        
+        return jsonify({
+            'success': True,
+            'result': result,
+            'message': 'Zero costing applied successfully'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/costing', methods=['GET', 'POST'])
 def costing():
     """Costing card functionality"""
@@ -1947,6 +2557,24 @@ def generate_presentation(file_id):
 def generate_mas(file_id):
     """Generate Material Approval Sheets"""
     try:
+        # Debug logging
+        uploaded_files = session.get('uploaded_files', [])
+        logger.info(f'Generate MAS called for file_id: {file_id}')
+        logger.info(f'Number of uploaded files: {len(uploaded_files)}')
+        
+        file_info = None
+        for f in uploaded_files:
+            if f['id'] == file_id:
+                file_info = f
+                logger.info(f'Found file_info with keys: {file_info.keys()}')
+                logger.info(f'Has costed_data: {"costed_data" in file_info}')
+                logger.info(f'Has stitched_table: {"stitched_table" in file_info}')
+                logger.info(f'Has extraction_result: {"extraction_result" in file_info}')
+                break
+        
+        if not file_info:
+            logger.error(f'File not found. Available file IDs: {[f.get("id") for f in uploaded_files]}')
+        
         from utils.mas_generator import MASGenerator
         generator = MASGenerator()
         result = generator.generate(file_id, session)
@@ -1957,6 +2585,7 @@ def generate_mas(file_id):
             'message': 'MAS generated successfully'
         })
     except Exception as e:
+        logger.exception('Error generating MAS')
         return jsonify({'error': str(e)}), 500
 
 @app.route('/value-engineering/<file_id>', methods=['POST'])
@@ -4662,6 +5291,44 @@ def download_stitched(file_id):
         logger.exception('Error generating stitched Excel download')
         return jsonify({'error': str(e)}), 500
 
+@app.route('/download/costed/<file_id>', methods=['GET'])
+def download_costed_excel(file_id):
+    """Download costed table as Excel with proper formatting (uses DownloadManager)"""
+    try:
+        from utils.download_manager import DownloadManager
+        
+        # Get file info
+        uploaded_files = session.get('uploaded_files', [])
+        file_info = None
+        
+        for f in uploaded_files:
+            if f['id'] == file_id:
+                file_info = f
+                break
+        
+        if not file_info or 'costed_data' not in file_info:
+            return jsonify({'error': 'Costed data not found. Please apply costing first.'}), 404
+        
+        # Use DownloadManager to create properly formatted Excel (same as manual costing)
+        manager = DownloadManager()
+        session_id = session.get('session_id', '')
+        costed_data = file_info['costed_data']
+        
+        output_dir = os.path.join('outputs', session_id, 'downloads')
+        os.makedirs(output_dir, exist_ok=True)
+        
+        file_path = manager.create_offer_excel(costed_data, output_dir, file_id)
+        
+        return send_file(
+            file_path,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=os.path.basename(file_path)
+        )
+    except Exception as e:
+        logger.exception('Error generating costed Excel download')
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/admin/cleanup', methods=['POST'])
 def admin_cleanup():
     """Manual trigger for cleanup (admin endpoint)"""
@@ -4708,10 +5375,10 @@ def cleanup_all_api():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    # Run cleanup on server start (only files older than 1 hour to avoid deleting active work)
+    # Run cleanup on server start (only files older than 2 hours to avoid deleting active work)
     try:
-        logger.info("Running startup cleanup (files older than 1 hour)...")
-        cleaned = cleanup_old_files(hours=1)
+        logger.info("Running startup cleanup (files older than 2 hours)...")
+        cleaned = cleanup_old_files(hours=2)
         logger.info(f"Startup cleanup completed: {cleaned}")
     except Exception as e:
         logger.error(f"Error in startup cleanup: {e}")
