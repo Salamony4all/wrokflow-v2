@@ -660,8 +660,17 @@ class PresentationGenerator:
             
             if image_path and os.path.exists(image_path):
                 try:
-                    slide.shapes.add_picture(image_path, Inches(0.6), Inches(1.8), 
-                                            width=Inches(4.2), height=Inches(4.2))
+                    # Add image with width only to preserve aspect ratio
+                    # Image will scale proportionally to fit the width
+                    pic = slide.shapes.add_picture(image_path, Inches(0.6), Inches(1.8), width=Inches(4.2))
+                    
+                    # Center vertically if image is shorter than available space
+                    available_height = Inches(4.2)
+                    if pic.height < available_height:
+                        # Calculate vertical centering
+                        vertical_offset = (available_height - pic.height) / 2
+                        pic.top = Inches(1.8) + vertical_offset
+                        
                 except Exception as e:
                     # If image fails, add placeholder
                     img_placeholder = slide.shapes.add_textbox(Inches(0.6), Inches(3.3), Inches(4.2), Inches(1))
