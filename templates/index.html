@@ -7385,27 +7385,40 @@
                         uploadProgressFill.classList.add('error');
                         progressBar.classList.remove('active');
                         const errorDetail = result.extraction_error || 'Unknown error occurred during extraction';
+                        
+                        // Log full error to console for debugging
+                        console.error('Extraction failed with error:', errorDetail);
+                        
                         uploadProgressFill.innerHTML = `
                             <div class="progress-text">
-                                <span>⚠</span>
-                                <div style="display: flex; flex-direction: column; align-items: flex-start;">
-                                    <span>100% Uploaded</span>
-                                    <div style="font-size: 0.85em; color: rgba(15, 23, 41, 0.7);">Extraction failed: ${errorDetail}</div>
+                                <span style="font-size: 1.5em;">❌</span>
+                                <div style="display: flex; flex-direction: column; align-items: flex-start; max-width: 100%;">
+                                    <span style="font-weight: bold;">Extraction Failed</span>
+                                    <div style="font-size: 0.9em; color: rgba(220, 38, 38, 0.9); margin-top: 4px; word-wrap: break-word; white-space: normal; text-align: left;">${errorDetail}</div>
                                 </div>
                             </div>
                         `;
+                        
+                        // Show detailed error in progress details
                         updateProgress(
                             100,
-                            '',
-                            '',
-                            `<strong>❌ Error:</strong> File uploaded but extraction failed: ${errorDetail}. Page will refresh in 3 seconds to allow new upload...`
+                            'Extraction Failed',
+                            errorDetail,
+                            `<strong style="color: #dc2626;">❌ Extraction Error:</strong><br/><div style="background: #fee; padding: 12px; border-radius: 6px; margin: 10px 0; border-left: 4px solid #dc2626;"><strong>Error Details:</strong><br/>${errorDetail}</div><div style="color: #666; margin-top: 10px;">The page will refresh in 5 seconds to allow you to retry with a corrected file...</div>`
                         );
-                        showUploadNotification('Extraction Failed', `${file.name} uploaded but extraction failed: ${errorDetail}. Refreshing...`, '⚠️');
                         
-                        // Auto-refresh page after 3 seconds to allow new upload
-                        setTimeout(() => {
+                        showUploadNotification('Extraction Failed', errorDetail, '❌');
+                        
+                        // Clear session and refresh page after 5 seconds to allow new upload
+                        setTimeout(async () => {
+                            try {
+                                // Clear session before refresh
+                                await fetch('/clear-session', { method: 'POST' });
+                            } catch (e) {
+                                console.error('Failed to clear session:', e);
+                            }
                             window.location.reload();
-                        }, 3000);
+                        }, 5000);
                     }
 
                     // File list refresh removed as uploaded files card is no longer displayed
@@ -7420,28 +7433,38 @@
                 uploadProgressFill.style.width = '0%';
                 uploadProgressFill.classList.add('error');
                 progressBar.classList.remove('active');
+                
+                // Log full error to console
+                console.error('Upload error:', error);
+                
                 uploadProgressFill.innerHTML = `
                     <div class="progress-text">
-                        <span>❌</span>
-                        <div style="display: flex; flex-direction: column; align-items: flex-start;">
-                            <span>Upload Error</span>
-                            <div style="font-size: 0.85em; color: rgba(15, 23, 41, 0.7);">${error.message}</div>
+                        <span style="font-size: 1.5em;">❌</span>
+                        <div style="display: flex; flex-direction: column; align-items: flex-start; max-width: 100%;">
+                            <span style="font-weight: bold;">Upload Error</span>
+                            <div style="font-size: 0.9em; color: rgba(220, 38, 38, 0.9); margin-top: 4px; word-wrap: break-word; white-space: normal; text-align: left;">${error.message}</div>
                         </div>
                     </div>
                 `;
+                
                 updateProgress(
                     0,
-                    '',
-                    '',
-                    `<strong>❌ Upload Error:</strong> ${error.message}. Page will refresh in 3 seconds...`
+                    'Upload Failed',
+                    error.message,
+                    `<strong style="color: #dc2626;">❌ Upload Error:</strong><br/><div style="background: #fee; padding: 12px; border-radius: 6px; margin: 10px 0; border-left: 4px solid #dc2626;"><strong>Error Details:</strong><br/>${error.message}</div><div style="color: #666; margin-top: 10px;">The page will refresh in 5 seconds to allow you to retry...</div>`
                 );
-                showUploadNotification('Upload Error', error.message, '❌');
-                console.error('Upload error:', error);
                 
-                // Auto-refresh page after 3 seconds
-                setTimeout(() => {
+                showUploadNotification('Upload Error', error.message, '❌');
+                
+                // Clear session and refresh page after 5 seconds
+                setTimeout(async () => {
+                    try {
+                        await fetch('/clear-session', { method: 'POST' });
+                    } catch (e) {
+                        console.error('Failed to clear session:', e);
+                    }
                     window.location.reload();
-                }, 3000);
+                }, 5000);
             }
 
             setTimeout(() => {
