@@ -162,17 +162,18 @@ class MASGenerator:
                 image_path = None
                 
                 # Iterate through row dictionary items
+                image_paths = []
                 for header, cell_value in row.items():
                     # Ensure header is a string
                     header_str = str(header) if header else ''
                     header_lower = header_str.lower()
                     cell_value = str(cell_value) if cell_value else ''
                     
-                    # Check for image in cell
+                    # Check for image in cell - extract ALL images
                     if '<img' in cell_value:
-                        img_path = self.extract_image_path(cell_value, session_id, file_id)
-                        if img_path:
-                            image_path = img_path
+                        paths = self.extract_all_image_paths(cell_value, session_id, file_id)
+                        if paths:
+                            image_paths.extend(paths)
                     
                     # Extract data based on header
                     if any(h in header_lower for h in ['descript', 'discript', 'item', 'product']):  # Handle misspelling
@@ -192,7 +193,8 @@ class MASGenerator:
                         'unit': unit,
                         'brand': brand,
                         'specifications': specifications,
-                        'image_path': image_path,
+                        'image_path': image_paths[0] if image_paths else None,
+                        'image_paths': image_paths,
                         'finish': 'As per manufacturer standard',
                         'warranty': '5 Years'
                     }
@@ -513,9 +515,52 @@ class MASGenerator:
         
         return story
     
+    def extract_all_image_paths(self, html_content, session_id, file_id):
+        """Extract ALL image paths from HTML content (supports multiple images)"""
+        image_paths = []
+        matches = re.findall(r'src=["\']([^"\']+ )["\']', html_content)
+        
+        for src in matches:
+            # Handle URLs (http/https)
+            if src.startswith('http://') or src.startswith('https://'):
+                image_paths.append(src)
+                continue
+            
+            # Handle leading slash
+            if src.startswith('/'):
+                src = src[1:]
+            
+            # Handle local paths
+            if src.startswith('outputs/'):
+                image_paths.append(src)
+                continue
+            
+            # Handle relative path - ensure all parts are strings
+            if isinstance(session_id, (list, tuple)):
+                session_id = session_id[0] if session_id else ''
+            if isinstance(file_id, (list, tuple)):
+                file_id = file_id[0] if file_id else ''
+            if isinstance(src, (list, tuple)):
+                src = src[0] if src else ''
+            
+            full_path = os.path.join('outputs', str(session_id), str(file_id), str(src))
+            if os.path.exists(full_path):
+                image_paths.append(full_path)
+            elif os.path.exists(str(src)):
+                image_paths.append(str(src))
+            else:
+                image_paths.append(full_path)
+        
+        return image_paths if image_paths else None
+    
     def extract_image_path(self, html_content, session_id, file_id):
-        """Extract image path from HTML content"""
-        match = re.search(r'src=["\']([^"\']+)["\']', html_content)
+        """Extract first image path from HTML content (for backward compatibility)"""
+        paths = self.extract_all_image_paths(html_content, session_id, file_id)
+        return paths[0] if paths else None
+        
+    def _extract_image_path_old(self, html_content, session_id, file_id):
+        """Original single image extraction (kept for reference)"""
+        match = re.search(r'src=["\']([^"\']+ )["\']', html_content)
         if match:
             src = match.group(1)
             

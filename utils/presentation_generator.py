@@ -207,13 +207,14 @@ class PresentationGenerator:
                     if 'total' in h_str or 'amount' in h_str:
                         total = self.strip_html(row.get(h, ''))
                 
-                # Find image
-                image_path = None
+                # Find image(s) - support multiple images per row
+                image_paths = []
                 for h in headers:
                     cell_value = row.get(h, '')
                     if self.contains_image(cell_value):
-                        image_path = self.extract_image_path(cell_value, session_id, file_id)
-                        break
+                        paths = self.extract_all_image_paths(cell_value, session_id, file_id)
+                        if paths:
+                            image_paths.extend(paths)
                 
                 if description:  # Only add if we have a description
                     item = {
@@ -222,7 +223,8 @@ class PresentationGenerator:
                         'unit': unit,
                         'unit_rate': unit_rate,
                         'total': total,
-                        'image_path': image_path,
+                        'image_path': image_paths[0] if image_paths else None,  # First image for compatibility
+                        'image_paths': image_paths,  # All images
                         'brand': self.extract_brand(description),
                         'specifications': self.extract_specifications(description)
                     }
@@ -322,13 +324,14 @@ class PresentationGenerator:
                 if 'total' in h_str or 'amount' in h_str:
                     total = self.strip_html(row_data.get(h, ''))
             
-            # Find image
-            image_path = None
+            # Find image(s) - support multiple images per row
+            image_paths = []
             for h in headers:
                 cell_value = row_data.get(h, '')
                 if self.contains_image(str(cell_value)):
-                    image_path = self.extract_image_path(str(cell_value), session_id, file_id)
-                    break
+                    paths = self.extract_all_image_paths(str(cell_value), session_id, file_id)
+                    if paths:
+                        image_paths.extend(paths)
             
             item = {
                 'description': description,
@@ -336,7 +339,8 @@ class PresentationGenerator:
                 'unit': unit,
                 'unit_rate': unit_rate,
                 'total': total,
-                'image_path': image_path,
+                'image_path': image_paths[0] if image_paths else None,  # First image for compatibility
+                'image_paths': image_paths,  # All images
                 'brand': self.extract_brand(description),
                 'specifications': self.extract_specifications(description)
             }
@@ -353,60 +357,65 @@ class PresentationGenerator:
         """Check if cell contains an image reference"""
         return '<img' in str(cell_value).lower() or 'img_in_' in str(cell_value).lower()
     
-    def extract_image_path(self, cell_value, session_id, file_id):
-        """Extract image path from cell value"""
+    def extract_all_image_paths(self, cell_value, session_id, file_id):
+        """Extract ALL image paths from cell value (supports multiple images)"""
+        image_paths = []
         try:
-            match = re.search(r'src=["\']([^"\']+)["\']', str(cell_value))
-            if match:
-                img_path = match.group(1).lstrip('/')
+            # Find all src="..." patterns
+            matches = re.findall(r'src=["\']([^"\']+)["\']', str(cell_value))
+            
+            for img_path in matches:
+                img_path = img_path.lstrip('/')
                 
                 # Handle URLs (http/https)
                 if img_path.startswith('http://') or img_path.startswith('https://'):
-                    return img_path
+                    image_paths.append(img_path)
+                    continue
                 
                 # Handle local paths - if already starts with outputs, return as-is
                 if img_path.startswith('outputs'):
-                    # Check if file exists
-                    if os.path.exists(img_path):
-                        return img_path
-                    # If not, might be missing file - still return it
-                    return img_path
+                    image_paths.append(img_path)
+                    continue
+                
+                # Ensure all parts are strings
+                if isinstance(session_id, (list, tuple)):
+                    session_id = session_id[0] if session_id else ''
+                if isinstance(file_id, (list, tuple)):
+                    file_id = file_id[0] if file_id else ''
+                if isinstance(img_path, (list, tuple)):
+                    img_path = img_path[0] if img_path else ''
+                
+                # Check if it's a relative path that needs to be joined
+                full_path = os.path.join('outputs', str(session_id), str(file_id), str(img_path))
+                if os.path.exists(full_path):
+                    image_paths.append(full_path)
                 else:
-                    # Ensure all parts are strings
-                    if isinstance(session_id, (list, tuple)):
-                        session_id = session_id[0] if session_id else ''
-                    if isinstance(file_id, (list, tuple)):
-                        file_id = file_id[0] if file_id else ''
-                    if isinstance(img_path, (list, tuple)):
-                        img_path = img_path[0] if img_path else ''
-                    
-                    # Check if it's a relative path that needs to be joined
-                    full_path = os.path.join('outputs', str(session_id), str(file_id), str(img_path))
-                    if os.path.exists(full_path):
-                        return full_path
-                    # Also try without the session_id/file_id prefix in case it's already included
+                    # Also try without the session_id/file_id prefix
                     if os.path.exists(str(img_path)):
-                        return str(img_path)
-                    return full_path  # Return even if doesn't exist yet, let download logic handle it
+                        image_paths.append(str(img_path))
+                    else:
+                        image_paths.append(full_path)  # Return even if doesn't exist yet
             
-            # Look for any image path pattern in imgs/ folder (more flexible regex)
-            if 'imgs/' in str(cell_value):
-                match = re.search(r'(imgs/[^"\s<>]+\.(jpg|png|jpeg|gif|webp))', str(cell_value), re.IGNORECASE)
-                if match:
-                    img_relative_path = match.group(1)
-                    # Ensure all parts are strings
+            # Also look for any image path pattern in imgs/ folder (more flexible regex)
+            if 'imgs/' in str(cell_value) and not matches:
+                img_matches = re.findall(r'(imgs/[^"\s<>]+\.(jpg|png|jpeg|gif|webp))', str(cell_value), re.IGNORECASE)
+                for img_relative_path, _ in img_matches:
                     if isinstance(session_id, (list, tuple)):
                         session_id = session_id[0] if session_id else ''
                     if isinstance(file_id, (list, tuple)):
                         file_id = file_id[0] if file_id else ''
                     full_path = os.path.join('outputs', str(session_id), str(file_id), str(img_relative_path))
-                    if os.path.exists(full_path):
-                        return full_path
-                    return full_path  # Return even if doesn't exist yet
+                    image_paths.append(full_path)
+                    
         except Exception as e:
-            logger.error(f"Error extracting image path: {e}")
-            pass
-        return None
+            logger.error(f"Error extracting image paths: {e}")
+        
+        return image_paths if image_paths else None
+    
+    def extract_image_path(self, cell_value, session_id, file_id):
+        """Extract first image path from cell value (for backward compatibility)"""
+        paths = self.extract_all_image_paths(cell_value, session_id, file_id)
+        return paths[0] if paths else None
     
     def generate_pdf(self, items, output_file):
         """Generate PDF presentation"""
@@ -648,32 +657,67 @@ class PresentationGenerator:
         title_p.font.bold = True
         title_p.font.color.rgb = RGBColor(255, 255, 255)  # White text on navy
         
-        # Image (left side) - adjusted position to account for taller header
-        image_path = item.get('image_path')
-        if image_path:
-            # If it's a URL, download it first
-            if image_path.startswith('http'):
-                from utils.image_helper import download_image
-                cached_path = download_image(image_path)
-                if cached_path:
-                    image_path = cached_path
+        # Images (left side) - support multiple images, adjusted position to account for taller header
+        image_paths = item.get('image_paths', [item.get('image_path')] if item.get('image_path') else [])
+        # Filter out None values
+        image_paths = [p for p in image_paths if p]
+        
+        logger.info(f"Item {page_num}: Found {len(image_paths)} image(s) to display")
+        
+        if image_paths:
+            # Calculate layout for multiple images
+            num_images = len(image_paths)
+            available_width = Inches(4.2)
+            available_height = Inches(4.2)
+            start_x = Inches(0.6)
+            start_y = Inches(1.8)
             
-            if image_path and os.path.exists(image_path):
-                try:
-                    # Add image with width only to preserve aspect ratio
-                    # Image will scale proportionally to fit the width
-                    pic = slide.shapes.add_picture(image_path, Inches(0.6), Inches(1.8), width=Inches(4.2))
+            if num_images == 1:
+                # Single image - use full space
+                image_width = available_width
+                positions = [(start_x, start_y)]
+            elif num_images == 2:
+                # Two images - stack vertically
+                image_width = available_width
+                image_height = available_height / 2 - Inches(0.1)
+                positions = [
+                    (start_x, start_y),
+                    (start_x, start_y + available_height / 2 + Inches(0.1))
+                ]
+            else:
+                # 3+ images - grid layout (2 columns)
+                image_width = available_width / 2 - Inches(0.1)
+                rows = (num_images + 1) // 2
+                image_height = available_height / rows - Inches(0.1)
+                positions = []
+                for i in range(num_images):
+                    row = i // 2
+                    col = i % 2
+                    x = start_x + col * (image_width + Inches(0.2))
+                    y = start_y + row * (image_height + Inches(0.2))
+                    positions.append((x, y))
+            
+            # Add all images
+            for idx, image_path in enumerate(image_paths[:6]):  # Limit to 6 images max
+                if idx >= len(positions):
+                    break
                     
-                    # Center vertically if image is shorter than available space
-                    available_height = Inches(4.2)
-                    if pic.height < available_height:
-                        # Calculate vertical centering
-                        vertical_offset = (available_height - pic.height) / 2
-                        pic.top = Inches(1.8) + vertical_offset
-                        
-                except Exception as e:
-                    # Silently skip if image fails
-                    pass
+                # Download if URL
+                if image_path.startswith('http'):
+                    from utils.image_helper import download_image
+                    cached_path = download_image(image_path)
+                    if cached_path:
+                        image_path = cached_path
+                
+                if image_path and os.path.exists(image_path):
+                    try:
+                        x, y = positions[idx]
+                        # Add image with width constraint to preserve aspect ratio
+                        pic = slide.shapes.add_picture(image_path, x, y, width=image_width)
+                        logger.info(f"  Added image {idx + 1}/{len(image_paths)}: {os.path.basename(image_path)}")
+                    except Exception as e:
+                        logger.error(f"  Failed to add image {idx + 1}: {e}")
+                        pass
         
         # Details box (right side) - adjusted position for taller header
         details_box = slide.shapes.add_textbox(Inches(5.2), Inches(1.8), Inches(4.3), Inches(5.0))
@@ -688,12 +732,23 @@ class PresentationGenerator:
         p.font.color.rgb = RGBColor(26, 54, 93)  # Navy
         p.space_after = Pt(12)
         
-        # Full description paragraph
+        # Full description paragraph - dynamically adjust font size based on length
         desc_p = details_frame.add_paragraph()
         desc_p.text = item['description']
-        desc_p.font.size = Pt(13)
+        
+        # Adjust font size based on description length
+        desc_length = len(item['description'])
+        if desc_length > 800:
+            desc_p.font.size = Pt(9)
+        elif desc_length > 500:
+            desc_p.font.size = Pt(10)
+        elif desc_length > 300:
+            desc_p.font.size = Pt(11)
+        else:
+            desc_p.font.size = Pt(13)
+        
         desc_p.font.color.rgb = RGBColor(51, 51, 51)  # Dark text
-        desc_p.space_after = Pt(10)
+        desc_p.space_after = Pt(8 if desc_length > 500 else 10)
         
         # Key Details - professional text only (no icons)
         p = details_frame.add_paragraph()
@@ -715,14 +770,17 @@ class PresentationGenerator:
         p.font.color.rgb = RGBColor(26, 54, 93)
         p.space_after = Pt(8)
         
-        # Add specifications (limit to prevent overflow)
-        for spec in item['specifications'][:6]:  # Limit to 6 specs
+        # Add specifications (limit based on description length to fit page)
+        desc_length = len(item['description'])
+        max_specs = 3 if desc_length > 500 else 5 if desc_length > 300 else 6
+        
+        for spec in item['specifications'][:max_specs]:
             p = details_frame.add_paragraph()
             p.text = f"• {spec}"
-            p.font.size = Pt(11)
+            p.font.size = Pt(10 if desc_length > 500 else 11)
             p.font.color.rgb = RGBColor(51, 51, 51)
             p.level = 1
-            p.space_after = Pt(3)
+            p.space_after = Pt(2 if desc_length > 500 else 3)
         
         # Warranty section (bottom left area)
         warranty_box = slide.shapes.add_textbox(Inches(0.6), Inches(6.2), Inches(4.0), Inches(0.6))
