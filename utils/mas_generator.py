@@ -452,39 +452,78 @@ class MASGenerator:
         story.append(details_table)
         story.append(Spacer(1, 0.15*inch))
         
-        # Product image section - smaller to fit page
-        image_title = Paragraph('<b>PRODUCT IMAGE</b>', self.header_style)
+        # Product image section - support multiple images in grid
+        image_title = Paragraph('<b>PRODUCT IMAGE(S)</b>', self.header_style)
         story.append(image_title)
         story.append(Spacer(1, 0.08*inch))
         
-        image_path = item.get('image_path')
-        if image_path:
-            # If it's a URL, download it first
-            if image_path.startswith('http'):
-                from utils.image_helper import download_image
-                cached_path = download_image(image_path)
-                if cached_path:
-                    image_path = cached_path
+        image_paths = item.get('image_paths', [])
+        if not image_paths and item.get('image_path'):
+            image_paths = [item.get('image_path')]
+        
+        if image_paths:
+            # Process and display images
+            valid_images = []
+            for image_path in image_paths[:6]:  # Max 6 images per item
+                # If it's a URL, download it first
+                if image_path.startswith('http'):
+                    from utils.image_helper import download_image
+                    cached_path = download_image(image_path)
+                    if cached_path:
+                        image_path = cached_path
+                
+                if image_path and os.path.exists(image_path):
+                    valid_images.append(image_path)
             
-            if image_path and os.path.exists(image_path):
+            # Create image grid if multiple images
+            if len(valid_images) == 1:
+                # Single image - show larger
                 try:
                     from PIL import Image as PILImage
-                    # Get original image dimensions
-                    pil_img = PILImage.open(image_path)
+                    pil_img = PILImage.open(valid_images[0])
                     img_width, img_height = pil_img.size
                     aspect_ratio = img_height / img_width
-                    
-                    # Set target width and calculate height to preserve aspect ratio
-                    target_width = 2.2 * inch
+                    target_width = 2.5 * inch
                     target_height = target_width * aspect_ratio
-                    
-                    # Create image with proper aspect ratio
-                    img = RLImage(image_path, width=target_width, height=target_height)
+                    img = RLImage(valid_images[0], width=target_width, height=target_height)
                     img.hAlign = 'CENTER'
                     story.append(img)
                 except Exception as e:
-                    # Silently skip if image fails
-                    pass
+                    logger.error(f"Failed to add image: {e}")
+            
+            elif len(valid_images) > 1:
+                # Multiple images - create grid (2 columns)
+                try:
+                    from PIL import Image as PILImage
+                    image_elements = []
+                    
+                    for img_path in valid_images:
+                        pil_img = PILImage.open(img_path)
+                        img_width, img_height = pil_img.size
+                        aspect_ratio = img_height / img_width
+                        target_width = 1.8 * inch
+                        target_height = target_width * aspect_ratio
+                        img_elem = RLImage(img_path, width=target_width, height=target_height)
+                        image_elements.append(img_elem)
+                    
+                    # Arrange in rows of 2
+                    img_table_data = []
+                    for i in range(0, len(image_elements), 2):
+                        if i + 1 < len(image_elements):
+                            img_table_data.append([image_elements[i], image_elements[i+1]])
+                        else:
+                            img_table_data.append([image_elements[i], ''])
+                    
+                    img_table = Table(img_table_data, colWidths=[3.5*inch, 3.5*inch])
+                    img_table.setStyle(TableStyle([
+                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+                        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+                    ]))
+                    story.append(img_table)
+                except Exception as e:
+                    logger.error(f"Failed to create image grid: {e}")
         
         story.append(Spacer(1, 0.15*inch))
         
@@ -545,7 +584,7 @@ class MASGenerator:
     def extract_all_image_paths(self, html_content, session_id, file_id):
         """Extract ALL image paths from HTML content (supports multiple images)"""
         image_paths = []
-        matches = re.findall(r'src=["\']([^"\']+ )["\']', html_content)
+        matches = re.findall(r'src=["\']([^"\']+)["\']', html_content)
         
         for src in matches:
             # Handle URLs (http/https)
@@ -587,7 +626,7 @@ class MASGenerator:
         
     def _extract_image_path_old(self, html_content, session_id, file_id):
         """Original single image extraction (kept for reference)"""
-        match = re.search(r'src=["\']([^"\']+ )["\']', html_content)
+        match = re.search(r'src=["\']([^"\']+)["\']', html_content)
         if match:
             src = match.group(1)
             

@@ -311,6 +311,11 @@ class OfferGenerator:
                         # Regular text cell - use final costed value only
                         # Strip any HTML tags that might remain
                         final_value = re.sub(r'<[^>]+>', '', str(cell_value))
+                        final_value = final_value.strip()
+                        
+                        # Remove excessive newlines and normalize whitespace
+                        final_value = re.sub(r'\n+', ' ', final_value)
+                        final_value = re.sub(r'\s+', ' ', final_value)
                         
                         # Format numbers nicely
                         if self.is_numeric_column(h):
@@ -319,6 +324,10 @@ class OfferGenerator:
                                 final_value = f"{num_val:,.2f}"
                             except:
                                 pass
+                        
+                        # Limit very long text to prevent cell overflow (max ~40 lines at 8pt font)
+                        if len(final_value) > 600:
+                            final_value = final_value[:597] + '...'
                         
                         table_row.append(Paragraph(final_value, self.table_cell_style))
                 
