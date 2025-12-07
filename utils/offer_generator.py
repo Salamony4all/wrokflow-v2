@@ -594,15 +594,6 @@ class OfferGenerator:
             widths = [w * scale_factor for w in widths]
         
         return widths
-                widths.append(0.85 * inch)
-            
-            # Supplier/Brand - medium
-            elif 'supplier' in h_lower or 'brand' in h_lower or 'model' in h_lower:
-                widths.append(0.8 * inch)
-            
-            # Default for unknown columns
-            else:
-                widths.append(0.7 * inch)
         
         # Normalize to fit total width
         current_total = sum(widths)
