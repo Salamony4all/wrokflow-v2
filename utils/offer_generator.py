@@ -63,6 +63,35 @@ class OfferGenerator:
             fontName=arabic_font,
             wordWrap='CJK'  # Better word wrapping for all languages
         )
+        
+        # Smaller style for headers to fit in 1-2 lines
+        self.table_header_style = ParagraphStyle(
+            'TableHeader',
+            parent=self.styles['Normal'],
+            fontSize=7,
+            leading=8,
+            spaceAfter=0,
+            spaceBefore=0,
+            leftIndent=0,
+            rightIndent=0,
+            fontName=arabic_font,
+            alignment=TA_CENTER,
+            wordWrap='CJK'
+        )
+        
+        # Smaller style for heavy text content (descriptions)
+        self.table_description_style = ParagraphStyle(
+            'TableDescription',
+            parent=self.styles['Normal'],
+            fontSize=6,
+            leading=7,
+            spaceAfter=0,
+            spaceBefore=0,
+            leftIndent=0,
+            rightIndent=0,
+            fontName=arabic_font,
+            wordWrap='CJK'
+        )
 
     def _get_logo_path(self):
         """Return the best available logo path."""
@@ -257,7 +286,7 @@ class OfferGenerator:
                     filtered_headers.append(h_str)
                     header_mapping[h_str] = h  # Map clean string to original header
             
-            header_row = [Paragraph(f"<b>{h}</b>", self.table_cell_style) for h in filtered_headers]
+            header_row = [Paragraph(f"<b>{h}</b>", self.table_header_style) for h in filtered_headers]
             table_rows.append(header_row)
             
             # Data rows - show only final costed prices with images
@@ -287,14 +316,14 @@ class OfferGenerator:
                         
                         if image_path and os.path.exists(image_path):
                             try:
-                                # Create image with proper sizing - constrain to fit in cell
+                                # Create image with LARGER sizing to match Excel preview
                                 from PIL import Image as PILImage
                                 pil_img = PILImage.open(image_path)
                                 img_width, img_height = pil_img.size
                                 
-                                # Calculate aspect ratio and constrain to much smaller size for table
-                                max_width = 0.6 * inch
-                                max_height = 0.6 * inch
+                                # Much larger images like in Excel - 1.5" x 1.5" max
+                                max_width = 1.5 * inch
+                                max_height = 1.5 * inch
                                 
                                 # Scale to fit within bounds while preserving aspect ratio
                                 width_ratio = max_width / img_width
@@ -304,11 +333,11 @@ class OfferGenerator:
                                 final_width = img_width * scale_ratio
                                 final_height = img_height * scale_ratio
                                 
-                                # Ensure minimum sensible size
-                                if final_width < 0.3 * inch:
-                                    final_width = 0.3 * inch
-                                if final_height < 0.3 * inch:
-                                    final_height = 0.3 * inch
+                                # Ensure reasonable minimum size
+                                if final_width < 0.8 * inch:
+                                    final_width = 0.8 * inch
+                                if final_height < 0.8 * inch:
+                                    final_height = 0.8 * inch
                                 
                                 img = RLImage(image_path, width=final_width, height=final_height)
                                 table_row.append(img)
@@ -336,11 +365,18 @@ class OfferGenerator:
                             except:
                                 pass
                         
-                        # Limit very long text to prevent cell overflow (max ~40 lines at 8pt font)
-                        if len(final_value) > 600:
-                            final_value = final_value[:597] + '...'
+                        # Limit very long text to prevent cell overflow (max ~60 lines at 6pt font)
+                        if len(final_value) > 800:
+                            final_value = final_value[:797] + '...'
                         
-                        table_row.append(Paragraph(final_value, self.table_cell_style))
+                        # Use smaller font for description/item columns with heavy text
+                        h_lower = h.lower()
+                        if ('descript' in h_lower or 'item' in h_lower) and len(final_value) > 200:
+                            cell_style = self.table_description_style
+                        else:
+                            cell_style = self.table_cell_style
+                        
+                        table_row.append(Paragraph(final_value, cell_style))
                 
                 table_rows.append(table_row)
             
@@ -491,7 +527,7 @@ class OfferGenerator:
         return any(keyword in header.lower() for keyword in numeric_keywords)
     
     def calculate_column_widths(self, headers, num_cols):
-        """Calculate dynamic column widths based on content - prioritize description and images"""
+        """Calculate dynamic column widths based on content - match Excel layout with larger images"""
         total_width = 7.5 * inch  # A4 page width minus margins
         
         # Identify column types and assign appropriate widths
@@ -502,42 +538,62 @@ class OfferGenerator:
         for header in headers:
             h_lower = header.lower()
             
-            # Serial number column - minimal
+            # Serial number column - minimal (SN)
             if 'sn' in h_lower or 'sl' in h_lower or 'si' in h_lower or (h_lower in ['no', '#']) or 'serial' in h_lower:
-                widths.append(0.35 * inch)
+                widths.append(0.3 * inch)
             
-            # Image/reference column - space for thumbnail
+            # Location column - small
+            elif 'location' in h_lower or 'loc' in h_lower:
+                widths.append(0.55 * inch)
+            
+            # Image/reference column - MUCH LARGER to match Excel (1.6")
             elif 'img' in h_lower or 'image' in h_lower or 'indicative' in h_lower or 'ref' in h_lower:
-                widths.append(0.9 * inch)
+                widths.append(1.6 * inch)
                 has_image = True
             
-            # Description column - largest for detailed text
+            # Item/Product name - small if description exists
+            elif 'item' in h_lower or 'product' in h_lower:
+                widths.append(0.8 * inch if has_description else 2.5 * inch)
+            
+            # Description column - LARGE for detailed text (3.5")
             elif 'descript' in h_lower or 'discript' in h_lower:
-                widths.append(3.2 * inch)  # Large space for full descriptions
+                widths.append(3.5 * inch)
                 has_description = True
             
-            # Item/Product name - medium if no description column
-            elif 'item' in h_lower or 'product' in h_lower:
-                widths.append(1.4 * inch if has_description else 2.8 * inch)
+            # Unit column - minimal
+            elif 'unit' in h_lower and 'rate' not in h_lower and 'price' not in h_lower and 'total' not in h_lower:
+                widths.append(0.35 * inch)
             
-            # Location - compact
-            elif 'location' in h_lower or 'loc' in h_lower:
-                widths.append(0.75 * inch)
+            # Quantity columns - small
+            elif 'qty' in h_lower or 'quantity' in h_lower or 'office' in h_lower:
+                widths.append(0.4 * inch)
             
-            # Quantity - minimal
-            elif 'qty' in h_lower or 'quantity' in h_lower:
-                widths.append(0.45 * inch)
-            
-            # Unit - minimal
-            elif 'unit' in h_lower and 'rate' not in h_lower and 'price' not in h_lower:
-                widths.append(0.45 * inch)
-            
-            # Rate/Price - compact numbers
+            # Rate/Price - compact numbers (0.6")
             elif 'rate' in h_lower or 'price' in h_lower:
-                widths.append(0.75 * inch)
+                widths.append(0.6 * inch)
             
-            # Total/Amount - compact numbers  
+            # Total/Amount - medium for numbers (0.7")
             elif 'amount' in h_lower or 'total' in h_lower:
+                widths.append(0.7 * inch)
+            
+            # Supplier/Brand/Model - medium
+            elif 'supplier' in h_lower or 'brand' in h_lower or 'model' in h_lower:
+                widths.append(0.7 * inch)
+            
+            # Default for unknown columns - medium
+            else:
+                widths.append(0.6 * inch)
+        
+        # Normalize to fit total width
+        current_total = sum(widths)
+        if current_total > total_width:
+            scale_factor = total_width / current_total
+            widths = [w * scale_factor for w in widths]
+        elif current_total < total_width * 0.95:  # If too small, expand proportionally
+            scale_factor = (total_width * 0.98) / current_total
+            widths = [w * scale_factor for w in widths]
+        
+        return widths
                 widths.append(0.85 * inch)
             
             # Supplier/Brand - medium
