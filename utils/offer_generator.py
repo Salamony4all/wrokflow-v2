@@ -317,9 +317,16 @@ class OfferGenerator:
                     original_h = header_mapping.get(h, h)
                     cell_value = row.get(original_h, '')
                     
-                    # Ensure cell_value is never a Paragraph object
-                    if hasattr(cell_value, '__class__') and 'Paragraph' in str(type(cell_value)):
-                        cell_value = str(cell_value)
+                    # CRITICAL: Ensure cell_value is clean string, not Paragraph object
+                    # Check if it's a Paragraph object by checking class name
+                    if hasattr(cell_value, '__class__'):
+                        class_name = cell_value.__class__.__name__
+                        if class_name == 'Paragraph' or 'Paragraph' in str(type(cell_value)):
+                            # Extract text from Paragraph or skip this cell
+                            cell_value = ''
+                    
+                    # Convert to string and ensure it's clean
+                    cell_value = str(cell_value) if cell_value else ''
                     
                     # Check if this cell contains an image reference
                     if self.contains_image(cell_value):
@@ -369,12 +376,19 @@ class OfferGenerator:
                     else:
                         # Regular text cell - use final costed value only
                         # Strip any HTML tags that might remain
-                        final_value = re.sub(r'<[^>]+>', '', str(cell_value))
+                        final_value = str(cell_value) if cell_value else ''
+                        
+                        # Safety check: If it looks like a Paragraph object representation, clear it
+                        if '<Paragraph at ' in final_value or final_value.startswith('<') and 'object at' in final_value:
+                            final_value = ''
+                        
+                        # Strip HTML tags
+                        final_value = re.sub(r'<[^>]+>', '', final_value)
                         final_value = final_value.strip()
                         
                         # Remove excessive newlines and normalize whitespace
-                        final_value = re.sub(r'\n+', ' ', final_value)
-                        final_value = re.sub(r'\s+', ' ', final_value)
+                        final_value = re.sub(r'\\n+', ' ', final_value)
+                        final_value = re.sub(r'\\s+', ' ', final_value)
                         
                         # Format numbers nicely
                         if self.is_numeric_column(h):
