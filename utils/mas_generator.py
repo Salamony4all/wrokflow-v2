@@ -397,13 +397,19 @@ class MASGenerator:
         story.append(details_title)
         story.append(Spacer(1, 0.08*inch))
         
-        # Wrap long descriptions
+        # Use full description - don't truncate
         description_text = item.get('description', 'N/A')
-        if len(description_text) > 80:
-            description_text = description_text[:200] + ('...' if len(description_text) > 200 else '')
+        
+        # Adjust font size based on description length for better fitting
+        if len(description_text) > 1000:
+            desc_style = ParagraphStyle('DescSmall', parent=self.normal_style, fontSize=7, leading=9)
+        elif len(description_text) > 500:
+            desc_style = ParagraphStyle('DescMedium', parent=self.normal_style, fontSize=8, leading=10)
+        else:
+            desc_style = self.normal_style
         
         details_data = [
-            ['Description:', Paragraph(description_text, self.normal_style)],
+            ['Description:', Paragraph(description_text, desc_style)],
             ['Brand:', item.get('brand', 'To be specified')],
             ['Quantity:', f"{item.get('qty', 'N/A')} {item.get('unit', '')}"],
             ['Finish:', item.get('finish', 'As per manufacturer standard')],

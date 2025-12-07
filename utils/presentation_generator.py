@@ -181,10 +181,13 @@ class PresentationGenerator:
             for row in table.get('rows', []):
                 # Find description column
                 description = ''
+                raw_description = ''
                 for h in headers:
                     h_str = str(h).lower() if h else ''
                     if 'descript' in h_str or 'discript' in h_str or 'item' in h_str:  # Handle misspelling
-                        description = self.strip_html(row.get(h, ''))
+                        raw_description = row.get(h, '')
+                        description = self.strip_html(raw_description)
+                        logger.info(f"Found description (length: {len(description)}): {description[:100]}...")
                         break
                 
                 # Find quantity
@@ -350,8 +353,22 @@ class PresentationGenerator:
         return items
     
     def strip_html(self, text):
-        """Strip HTML tags from text"""
-        return re.sub(r'<[^>]+>', '', str(text)).strip()
+        """Strip HTML tags from text but preserve all text content including from image alt tags"""
+        text = str(text)
+        
+        # Extract text from img alt attributes before removing tags
+        img_alts = re.findall(r'<img[^>]*alt=["\']([^"\']+)["\']', text, re.IGNORECASE)
+        
+        # Remove HTML tags
+        text = re.sub(r'<[^>]+>', ' ', text)
+        
+        # Decode HTML entities
+        text = text.replace('&nbsp;', ' ').replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>')
+        
+        # Clean up multiple spaces and normalize whitespace
+        text = re.sub(r'\s+', ' ', text).strip()
+        
+        return text
     
     def contains_image(self, cell_value):
         """Check if cell contains an image reference"""
@@ -647,13 +664,16 @@ class PresentationGenerator:
             except Exception:
                 pass
         
-        # Title in header - positioned to not overlap logo (left-aligned with more space)
+        # Title in header - show item number and short title
         title_box = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(7.2), Inches(0.6))
         title_frame = title_box.text_frame
-        title_text = f"Item {page_num}: {item['description'][:55]}"
+        title_frame.word_wrap = True
+        # Extract first line or first 60 chars for title
+        first_line = item['description'].split('\n')[0] if '\n' in item['description'] else item['description']
+        title_text = f"Item {page_num}: {first_line[:60]}" + ("..." if len(first_line) > 60 else "")
         title_frame.text = title_text
         title_p = title_frame.paragraphs[0]
-        title_p.font.size = Pt(20)
+        title_p.font.size = Pt(18 if len(first_line) > 50 else 20)
         title_p.font.bold = True
         title_p.font.color.rgb = RGBColor(255, 255, 255)  # White text on navy
         
@@ -727,10 +747,18 @@ class PresentationGenerator:
         # Product Details heading
         p = details_frame.paragraphs[0]
         p.text = "Product Details"
-        p.font.size = Pt(20)
+        p.font.size = Pt(18)
         p.font.bold = True
         p.font.color.rgb = RGBColor(26, 54, 93)  # Navy
-        p.space_after = Pt(12)
+        p.space_after = Pt(8)
+        
+        # Description label
+        desc_label = details_frame.add_paragraph()
+        desc_label.text = "Description:"
+        desc_label.font.size = Pt(14)
+        desc_label.font.bold = True
+        desc_label.font.color.rgb = RGBColor(26, 54, 93)
+        desc_label.space_after = Pt(4)
         
         # Full description paragraph - dynamically adjust font size based on length
         desc_p = details_frame.add_paragraph()
