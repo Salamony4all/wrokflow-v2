@@ -36,8 +36,6 @@ BRANDS_DATA_DIR = os.environ.get('BRANDS_DATA_PATH', 'brands_data')
 # Ensure brands data directory exists
 os.makedirs(BRANDS_DATA_DIR, exist_ok=True)
 
-Session(app)
-
 # Basic logging - configure to log to both file and console
 logging.basicConfig(
     level=logging.INFO,
@@ -48,6 +46,9 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
+# Initialize Flask-Session after logging is configured
+Session(app)
 
 # Log brands data directory configuration
 logger.info(f"Brands data directory configured: {BRANDS_DATA_DIR}")
@@ -3047,6 +3048,8 @@ def get_brands_categories():
         }
         tier = tier_map.get(tier.lower(), tier.lower())
         
+        logger.info(f"Fetching categories for brand={brand}, tier={tier}")
+        
         safe_brand_name = re.sub(r'[^\w\-_]', '', brand.replace(' ', '_'))
         filename = f"{safe_brand_name}_{tier}.json"
         filepath = os.path.join(BRANDS_DATA_DIR, filename)
@@ -3061,20 +3064,28 @@ def get_brands_categories():
                         break
         
         if not os.path.exists(filepath):
+            logger.warning(f"Brand file not found: {filepath}")
             return jsonify({
                 'success': True,
                 'categories': []
             })
         
+        logger.info(f"Loading brand data from: {filepath}")
         with open(filepath, 'r', encoding='utf-8') as f:
             brand_data = json.load(f)
         
         # Handle multiple data formats: categories, collections, category_tree
-        categories_data = brand_data.get('categories', {})
+        # Priority: category_tree > categories > collections
+        categories_data = {}
         
-        # Try category_tree format (from old scrapers)
-        if not categories_data and 'category_tree' in brand_data:
+        # Try category_tree format first (primary format)
+        if 'category_tree' in brand_data and brand_data.get('category_tree'):
             categories_data = brand_data.get('category_tree', {})
+            logger.info(f"Using category_tree format: {len(categories_data)} categories")
+        # Fallback to categories format
+        elif 'categories' in brand_data and brand_data.get('categories'):
+            categories_data = brand_data.get('categories', {})
+            logger.info(f"Using categories format: {len(categories_data)} categories")
         
         # Try collections format (from Firecrawl)
         if not categories_data and 'collections' in brand_data:
@@ -3098,6 +3109,8 @@ def get_brands_categories():
                         categories_data[clean_name] = {}
         
         categories = list(categories_data.keys()) if categories_data else []
+        
+        logger.info(f"Returning {len(categories)} categories for {brand}: {categories}")
         
         return jsonify({
             'success': True,
