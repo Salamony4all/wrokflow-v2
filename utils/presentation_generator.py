@@ -724,6 +724,25 @@ class PresentationGenerator:
             p.level = 1
             p.space_after = Pt(3)
         
+        # Warranty section (bottom left area)
+        warranty_box = slide.shapes.add_textbox(Inches(0.6), Inches(6.2), Inches(4.0), Inches(0.6))
+        warranty_frame = warranty_box.text_frame
+        warranty_frame.word_wrap = True
+        
+        # Warranty heading
+        warranty_title = warranty_frame.paragraphs[0]
+        warranty_title.text = "Warranty"
+        warranty_title.font.size = Pt(14)
+        warranty_title.font.bold = True
+        warranty_title.font.color.rgb = RGBColor(26, 54, 93)
+        warranty_title.space_after = Pt(4)
+        
+        # Warranty content
+        warranty_content = warranty_frame.add_paragraph()
+        warranty_content.text = "As per manufacturer - 5 years"
+        warranty_content.font.size = Pt(11)
+        warranty_content.font.color.rgb = RGBColor(51, 51, 51)
+        
         # Footer with website
         footer_box = slide.shapes.add_textbox(Inches(3), Inches(7), Inches(4), Inches(0.3))
         footer_frame = footer_box.text_frame
