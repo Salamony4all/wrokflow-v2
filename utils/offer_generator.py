@@ -246,9 +246,17 @@ class OfferGenerator:
             
             # Headers - clean and format, exclude Action and Product Selection columns
             headers = table_data['headers']
-            # Filter out Action/Actions and Product Selection columns
-            filtered_headers = [str(h).strip() for h in headers if str(h).lower().strip() not in ['action', 'actions', 'product selection', 'productselection']]
-            header_row = [Paragraph(f"<b>{str(h)}</b>", self.table_cell_style) for h in filtered_headers]
+            # Create mapping of original headers to clean string versions
+            header_mapping = {}
+            filtered_headers = []
+            for h in headers:
+                h_str = str(h).strip()
+                h_lower = h_str.lower()
+                if h_lower not in ['action', 'actions', 'product selection', 'productselection']:
+                    filtered_headers.append(h_str)
+                    header_mapping[h_str] = h  # Map clean string to original header
+            
+            header_row = [Paragraph(f"<b>{h}</b>", self.table_cell_style) for h in filtered_headers]
             table_rows.append(header_row)
             
             # Data rows - show only final costed prices with images
@@ -256,7 +264,9 @@ class OfferGenerator:
                 table_row = []
                 
                 for h in filtered_headers:
-                    cell_value = row.get(h, '')
+                    # Use original header key for lookup
+                    original_h = header_mapping.get(h, h)
+                    cell_value = row.get(original_h, '')
                     
                     # Skip original price fields
                     if '_original' in h:
